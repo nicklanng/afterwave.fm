@@ -1,0 +1,41 @@
+# Artist pages: Photo gallery
+
+*Design doc for the artist page photo gallery.*
+
+See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core product that drives artist subscriptions.
+
+---
+
+## Collections
+
+- Artists upload photos organised into **collections** (e.g. “Tour 2024”, “Studio sessions”, “Press”).
+- Artists can create a collection **linked to an event from their gig calendar** — e.g. “Photos from Bristol, 12 March” tied to that gig. This keeps event photos grouped and discoverable.
+
+---
+
+## Artist uploads
+
+- Owner and invitees with “photos” (or equivalent) permission can create collections and upload photos.
+- Layout, bulk upload, ordering, and display behaviour TBD.
+
+### Guidelines (and optional explicit/mature) on the upload form
+
+The **photo upload** flow includes a **guidelines section**: short summary of our [content policy](./MODERATION.md) (human-made only; no illegal content, harassment, hate speech, impersonation, or porn; you must have the rights). Link to full guidelines. Optionally we add a **“Mark as mature”** or **“Explicit”** control for artistic nudity or sensitive imagery so it can be age-gated; TBD. See [Artist pages → Upload guidelines and explicit content](./ARTIST_PAGES.md#upload-guidelines-and-explicit-content).
+
+---
+
+## User-submitted photos
+
+- **Users can submit photos to artists** (e.g. fan shots from a gig). They can link a submission to an **event** on the artist’s calendar.
+- **Artists must approve** user-submitted photos before they appear in the gallery. Until approved, submissions are in a pending/queue state visible only to the artist (and admins with the right role).
+- Approved user photos can be placed in the same event-linked collection or a dedicated “Fan photos” (or similar) collection — TBD.
+
+**Tie-in with supporter galleries:** Users who have a [platform subscription](./PLATFORM_SUBSCRIPTION.md) can also have a **personal gallery** on their profile, with photos linked to artists. The same photo might be submitted to an artist (for the artist's gallery, pending approval) and shown in the user's own gallery with a link to the artist. Good for photographers and reviewers.
+
+---
+
+## Open decisions
+
+- Whether approved user photos live in the same collection as the event or in a separate “fan photos” area.
+- Permissions: who on the artist side can approve/reject submissions (owner only vs any “photos” role).
+- Limits on submissions per user per event, file size, etc.
