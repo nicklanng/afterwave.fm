@@ -10,13 +10,16 @@ See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core prod
 
 - Artists upload photos organised into **collections** (e.g. “Tour 2024”, “Studio sessions”, “Press”).
 - Artists can create a collection **linked to an event from their gig calendar** — e.g. “Photos from Bristol, 12 March” tied to that gig. This keeps event photos grouped and discoverable.
+- **Post to feed** — When creating a new collection, the artist has an option to **post it to their content feed**. If chosen, a post is created (e.g. “New gallery: [collection name]” with a link or preview to the collection) so followers see the new collection in their feed. Optional at creation time; artists can also share collections manually via the feed later.
 
 ---
 
 ## Artist uploads
 
 - Owner and invitees with “photos” (or equivalent) permission can create collections and upload photos.
-- Layout, bulk upload, ordering, and display behaviour TBD.
+- **Bulk upload** — Artists can upload multiple photos at once into a collection; max count per batch and per collection TBD.
+- **Ordering** — Photos within a collection can be reordered (drag-and-drop or manual order). Default order: upload order or by date; TBD.
+- **Display** — Layout (grid, masonry, carousel) and display behaviour (lightbox, full-size view) TBD. We start with a simple grid; evolve as needed.
 
 ### Guidelines (and optional explicit/mature) on the upload form
 

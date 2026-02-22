@@ -1,0 +1,767 @@
+openapi: 3.0.3
+info:
+  title: Afterwave.fm API
+  description: |
+    REST API for Afterwave.fm. Authentication uses Authorization Code + PKCE;
+    no client secret. Session can be sent via Cookie or Authorization Bearer.
+  version: 1.0.0
+
+servers:
+  - url: /v1
+    description: API v1 base path
+
+tags:
+  - name: Auth
+    description: Signup, login, token exchange, refresh, logout
+  - name: Users
+    description: Current user and following (/users/me, /users/me/following)
+  - name: Account
+    description: Account lifecycle (delete)
+  - name: Artists
+    description: Artist pages and posts (/artists, /artists/{handle}, /artists/{handle}/posts)
+  - name: Feed
+    description: Collated feed of posts from artists you follow (GET /feed)
+
+paths:
+  # --- Auth ---
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Sign up
+      description: Register a new user and receive an authorization code for PKCE token exchange.
+      operationId: signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupLoginRequest'
+      responses:
+        '201':
+          description: Created; returns authorization code for token exchange
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthCodeResponse'
+        '400':
+          description: Bad request (e.g. invalid body, validation error)
+        '409':
+          description: Email already registered
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      description: Authenticate with email/password and receive an authorization code for PKCE token exchange.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupLoginRequest'
+      responses:
+        '200':
+          description: OK; returns authorization code for token exchange
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthCodeResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Invalid email or password
+
+  /auth/token:
+    post:
+      tags: [Auth]
+      summary: Exchange code for tokens
+      description: Exchange authorization_code + code_verifier (PKCE) for session and refresh tokens. Sets httpOnly cookies when using browser.
+      operationId: token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: OK; returns token pair and sets session/refresh cookies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '400':
+          description: Bad request (grant_type, client_id, code, code_verifier required)
+        '401':
+          description: Invalid or expired authorization code
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh tokens
+      description: Exchange refresh_token for new session and refresh tokens. Send refresh_token in Cookie or JSON body. Requires X-Client-ID header.
+      operationId: refresh
+      parameters:
+        - name: X-Client-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            example: web
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: Optional if sent via Cookie
+      responses:
+        '200':
+          description: OK; returns new token pair and sets cookies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '400':
+          description: refresh_token or X-Client-ID missing
+        '401':
+          description: Invalid/expired refresh token or unknown client
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out
+      description: Revoke current session and clear session cookies.
+      operationId: logout
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Unauthorized
+
+  # --- Users ---
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get current user
+      operationId: getMe
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+
+  # --- Account ---
+  /account:
+    delete:
+      tags: [Account]
+      summary: Delete account
+      description: Permanently delete the authenticated user's account and revoke all sessions.
+      operationId: deleteAccount
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Unauthorized
+
+  # --- Artists ---
+  /artists:
+    post:
+      tags: [Artists]
+      summary: Create artist page
+      operationId: createArtist
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtistCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Artist'
+        '400':
+          description: Bad request (e.g. validation)
+        '401':
+          description: Unauthorized
+        '409':
+          description: Handle already in use
+
+  /artists/me:
+    get:
+      tags: [Artists]
+      summary: List my artist pages
+      operationId: listMyArtists
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  artists:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Artist'
+        '401':
+          description: Unauthorized
+
+  /artists/{handle}:
+    get:
+      tags: [Artists]
+      summary: Get artist by handle
+      description: Public; no authentication required.
+      operationId: getArtistByHandle
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Artist'
+        '404':
+          description: Not found
+    patch:
+      tags: [Artists]
+      summary: Update artist
+      description: Owner only.
+      operationId: updateArtist
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtistUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Artist'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner)
+        '404':
+          description: Not found
+    delete:
+      tags: [Artists]
+      summary: Delete artist
+      description: Owner only.
+      operationId: deleteArtist
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner)
+        '404':
+          description: Not found
+
+  /artists/{handle}/posts:
+    post:
+      tags: [Artists]
+      summary: Create post
+      description: Owner only. Creates a post on the artist's content feed.
+      operationId: createPost
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner)
+        '404':
+          description: Artist not found
+        '409':
+          description: A post with this title already exists for this artist (slug conflict)
+    get:
+      tags: [Artists]
+      summary: List posts
+      description: Public. Returns posts for the artist, newest first. Paginated like my feed (default limit 10, has_more).
+      operationId: listPosts
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            description: Page size
+        - name: from
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            description: Pagination offset
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [posts, has_more]
+                properties:
+                  posts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+                  has_more:
+                    type: boolean
+                    description: True if more results exist after this page
+        '404':
+          description: Not found
+
+  /artists/{handle}/posts/{postId}:
+    get:
+      tags: [Artists]
+      summary: Get post
+      description: Public.
+      operationId: getPost
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '404':
+          description: Not found
+    patch:
+      tags: [Artists]
+      summary: Update post
+      description: Owner only.
+      operationId: updatePost
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner)
+        '404':
+          description: Not found
+    delete:
+      tags: [Artists]
+      summary: Delete post
+      description: Owner only.
+      operationId: deletePost
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner)
+        '404':
+          description: Not found
+
+  /users/me/following:
+    get:
+      tags: [Users]
+      summary: List artists I follow
+      operationId: listMyFollowing
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  handles:
+                    type: array
+                    items:
+                      type: string
+                    description: Artist handles the user follows
+        '401':
+          description: Unauthorized
+
+  /users/me/following/{handle}:
+    post:
+      tags: [Users]
+      summary: Follow an artist
+      operationId: followArtist
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Artist handle to follow
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Unauthorized
+        '404':
+          description: Artist not found
+    delete:
+      tags: [Users]
+      summary: Unfollow an artist
+      operationId: unfollowArtist
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Unauthorized
+
+  /feed:
+    get:
+      tags: [Feed]
+      summary: My feed
+      description: Collated feed of posts from artists the user follows. Requires OpenSearch feed index.
+      operationId: getMyFeed
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            description: Page size
+        - name: from
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            description: Pagination offset
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [posts, has_more]
+                properties:
+                  posts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+                  has_more:
+                    type: boolean
+                    description: True if more results exist after this page
+        '401':
+          description: Unauthorized
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Session JWT (RS256). Alternative to cookie.
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: afterwave_session
+      description: Session token stored in httpOnly cookie (set by /auth/token or /auth/refresh).
+
+  parameters:
+    Handle:
+      name: handle
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Artist page handle (URL slug)
+    PostId:
+      name: postId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Post slug (unique per artist, derived from title; e.g. my-post-title)
+
+  schemas:
+    SignupLoginRequest:
+      type: object
+      required: [email, password, client_id, code_challenge]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        client_id:
+          type: string
+          description: Client identifier (e.g. web, ios, android)
+        code_challenge:
+          type: string
+          description: PKCE code challenge (base64url)
+        code_challenge_method:
+          type: string
+          enum: [S256]
+          default: S256
+
+    AuthCodeResponse:
+      type: object
+      required: [authorization_code, expires_in]
+      properties:
+        authorization_code:
+          type: string
+        expires_in:
+          type: integer
+          description: Seconds until code expires
+
+    TokenRequest:
+      type: object
+      required: [grant_type, client_id, code, code_verifier]
+      properties:
+        grant_type:
+          type: string
+          enum: [authorization_code]
+        client_id:
+          type: string
+        code:
+          type: string
+          description: Authorization code from /auth/signup or /auth/login
+        code_verifier:
+          type: string
+          description: PKCE code verifier
+
+    TokenPair:
+      type: object
+      properties:
+        session_token:
+          type: string
+          description: JWT session token
+        refresh_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        expires_in:
+          type: integer
+          description: Seconds until session expiry
+        refresh_expires_in:
+          type: integer
+          description: Seconds until refresh expiry (e.g. for cookie max-age)
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+
+    ArtistCreate:
+      type: object
+      required: [handle]
+      properties:
+        handle:
+          type: string
+          description: URL-safe handle (slug)
+        display_name:
+          type: string
+        bio:
+          type: string
+
+    ArtistUpdate:
+      type: object
+      properties:
+        display_name:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+
+    Artist:
+      type: object
+      properties:
+        handle:
+          type: string
+        display_name:
+          type: string
+        bio:
+          type: string
+        owner_user_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        follower_count:
+          type: integer
+          description: Number of users following this artist.
+
+    PostCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          description: Post title. Slug (post_id) is derived from this (lowercased, spaces and special chars to hyphen, Hugo-style).
+        body:
+          type: string
+          description: Post body. May contain Markdown (bold, links, lists, headings, etc.); clients should render as markdown when displaying.
+        image_url:
+          type: string
+        youtube_url:
+          type: string
+        explicit:
+          type: boolean
+          default: false
+
+    PostUpdate:
+      type: object
+      properties:
+        body:
+          type: string
+          nullable: true
+          description: Post body. May contain Markdown; clients render as markdown when displaying.
+        image_url:
+          type: string
+          nullable: true
+        youtube_url:
+          type: string
+          nullable: true
+        explicit:
+          type: boolean
+          nullable: true
+
+    Post:
+      type: object
+      properties:
+        post_id:
+          type: string
+          description: Slug (unique per artist), derived from title (Hugo-style).
+        artist_handle:
+          type: string
+        title:
+          type: string
+          description: Post title.
+        body:
+          type: string
+          description: Post body. May contain Markdown; clients should render as markdown when displaying.
+        image_url:
+          type: string
+        youtube_url:
+          type: string
+        explicit:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by_user_id:
+          type: string

@@ -19,6 +19,7 @@ Artists pay a flat monthly fee to have an artist page. We receive this; it’s o
 
 
 - **Important:** All tiers get the same **core features** — feed, gallery, gigs, notifications, tips, recurring fan subs, mailing list, discovery. We do **not** lock $10 users out of anything essential. Tiering is by **capacity** (tracks, and maybe photo storage / custom domain later), not by “can you do X.”
+- **Track limit = unique tracks.** The limit counts distinct tracks, not how many times a track appears in releases. If an artist uploads a few tracks as a single and later releases an album that includes those same tracks, the album reuses the same upload slots — they don't have to upload the tracks twice. See [Artist pages: Music](./ARTIST_PAGES_MUSIC.md).
 - **Other perks** for higher tiers (optional, to add later): e.g. more photo storage, custom domain, deeper analytics, priority support, or multiple artist pages per account. Nothing that makes $10 feel second-class for day-to-day use.
 
 ### Competitor context (how we compare)

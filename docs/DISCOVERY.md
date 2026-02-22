@@ -64,7 +64,7 @@ Users can discover artists by:
 - **Combined** — e.g. “punk in Bristol,” “folk in Scotland.”
 - **Free-text search** — Artist name, handle, and (optionally) bio. We support full-text search for artist names; this is a core part of discovery. Scope (name only vs name + bio + genre) TBD; all search will **probably use OpenSearch on AWS** (one search backend for filters, free-text, and relevance).
 
-Search backend: **OpenSearch (AWS)** for indexing and querying artist data; exact index design and sync from primary store (e.g. DynamoDB) TBD.
+Search backend: **OpenSearch (AWS)** for indexing and querying artist data; exact index design and sync from primary store (e.g. DynamoDB) TBD. Artist and user lookups use a **discovery** index; feed and post search use a **separate feed index**. See [Architecture → OpenSearch: separate indices](./ARCHITECTURE.md#opensearch-separate-indices-for-discovery-vs-feed).
 
 - **Block list** — For signed-in users, discovery (search, browse, charts) **excludes** artists and content from users they have blocked. Blocked artists don’t appear in results; content from blocked users (e.g. in any mixed feed) is hidden. See [Data and privacy → Blocking](./DATA_AND_PRIVACY.md#blocking-artists-and-other-users).
 

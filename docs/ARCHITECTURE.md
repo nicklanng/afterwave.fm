@@ -35,9 +35,25 @@ We run a **monolith**: one Go API, **two frontend codebases** — the **website*
 | **AWS SES** | Transactional email: signup, password reset, artist invites, notifications. | **Definite.** Sending domain and templates TBD. |
 | **AWS Secrets Manager** | API secrets: JWT signing keys, Stripe keys, DB config, etc. Not in repo. | **Definite.** Fetched at startup or via IAM at runtime. |
 | **KMS** | Encryption for **per-customer or sensitive data in DynamoDB** (e.g. payout details, tokens). | Use envelope encryption or DynamoDB encryption with customer-managed keys where we need to isolate or protect data per tenant/customer. |
-| **OpenSearch (AWS)** | Search backend for discovery: free-text search (artist name, handle, bio), filters (genre, location), relevance ranking. | API indexes artist data into OpenSearch (sync from DynamoDB on write or batch). Discovery and browse queries hit OpenSearch; primary data stays in DynamoDB. See [Discovery](./DISCOVERY.md), [Deployment](./DEPLOYMENT.md). |
+| **OpenSearch (AWS)** | Search backend for discovery and feed: artist/user lookups and feed references live in **separate indices** (see below). Primary content stays in DynamoDB/S3; OpenSearch holds only what’s needed for search and feed ordering. | See [Discovery](./DISCOVERY.md), [Deployment](./DEPLOYMENT.md). |
 | **Grafana Cloud** | Metrics, logs, and traces. We export OpenTelemetry (and optionally logs) from the API to Grafana Cloud to start. Can bring observability in-house later if cost becomes an issue. | See [Deployment](./DEPLOYMENT.md) for health, alerts, rollback. |
 | **DNS** | Domain and wildcard: afterwave.fm, www.afterwave.fm, *.afterwave.fm, api.afterwave.fm. | Route 53 or equivalent. |
+
+---
+
+## OpenSearch: separate indices for discovery vs feed
+
+We use **different OpenSearch indices (collections)** for discovery/artist-user lookups and for feed content. The actual content lives in DynamoDB (and S3 for blobs); OpenSearch holds only references and fields needed for search, filter, and sort.
+
+| Index (collection) | Purpose | What’s stored |
+|--------------------|---------|----------------|
+| **Discovery** (e.g. `afterwave-discovery`) | Artist and user lookups, browse, search. | References and searchable/filterable fields: artist handle, display name, bio, genre, location, etc. No full content; primary data in DynamoDB. |
+| **Feed** (e.g. `afterwave-feed`) | Feed listing and search over posts. | Post references and sort/search fields: `post_id`, `artist_handle`, `created_at`, optional body/excerpt for full-text search. Full post content and media pointers stay in DynamoDB/S3. |
+
+- **Discovery** is used for: “search artists,” “artists in Bristol,” “browse by genre,” and any user-profile search we add. Queries return refs; the API loads full artist/user from DynamoDB when needed.
+- **Feed** is used for: per-artist feed list, collated feed (“posts from artists I follow”), and search over post text. Queries return refs (e.g. `post_id` + `artist_handle`); the API loads full post (and media) from DynamoDB/S3 when needed.
+
+Keeping these in separate collections avoids mixing feed documents with artist/user documents and lets us tune mappings, retention, and access per use case.
 
 ---
 

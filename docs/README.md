@@ -27,3 +27,7 @@ Documentation for the Afterwave.fm application.
 
 - **[Tax and compliance](./TAX_AND_COMPLIANCE.md)** — Merchant of record: multi-national tax (VAT/GST, sales tax), what we keep, auditing obligations
 - **[AI use policy](./AI_USE_POLICY.md)** — How we use (and don’t use) AI in development and product
+
+### Backlog
+
+- **[Future improvements](./FUTURE_IMPROVEMENTS.md)** — Technical and product improvements we may do later (e.g. SQS-based OpenSearch indexing)

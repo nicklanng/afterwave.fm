@@ -56,7 +56,8 @@ These are the main parts of the artist page. Each can have its own design docume
 ## Notifications (“mailing list”)
 
 - **Core idea:** “Be notified of new content on this artist page.” Fans opt in to get notified when the artist posts new content (and optionally when there’s new music, gigs, etc.).
-- **Email is optional.** The primary product is “follow this page and get notified”; we may offer email delivery as an option. We **don’t expose subscriber emails to artists** — we (the platform) own the sign-up data and send notifications on the artist’s behalf; artists see counts and can trigger “notify subscribers” through us. See [Data and privacy](./DATA_AND_PRIVACY.md).
+- **Main page:** Signed-in users see a **collated feed** of feed updates from the artists they follow (one stream on the main site). Notifications are accessed via a **bell**; the bell shows a **badge** when there are unread notifications, and the user clicks the bell to open the notification list. See [Artist pages: Notifications](./ARTIST_PAGES_NOTIFICATIONS.md).
+- **Email is optional.** We may offer email delivery as an option. We **don’t expose subscriber emails to artists** — we (the platform) own the sign-up data and send notifications on the artist’s behalf; artists see counts and can trigger “notify subscribers” through us. See [Data and privacy](./DATA_AND_PRIVACY.md).
 
 ---
 
