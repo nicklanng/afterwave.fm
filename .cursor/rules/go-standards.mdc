@@ -1,0 +1,62 @@
+---
+description: Go project standards — no replace directives, integration tests, make test, OpenAPI docs, prefer any, transactions over GSIs, remove dead code
+alwaysApply: true
+---
+
+# Go Project Standards
+
+## 1. Never use go mod replace directives
+
+Do **not** add or suggest `replace` directives in `go.mod`. Use real module versions and update dependencies via `go get` or by fixing version constraints. If a dependency must be forked or patched, document the reason and prefer vendoring or a proper fork under our control rather than `replace`.
+
+## 2. Integration tests hit the API over HTTP (no direct handler/service calls)
+
+When adding or changing behavior (new endpoints, services, stores, etc.):
+
+- Add **integration tests** that exercise the API by making **HTTP requests** to the server (e.g. `httptest.Server` or a running process). Use an HTTP client and request URLs (e.g. `POST /v1/signup`, `GET /v1/users/me`). Assert on response status, headers, and body.
+- Do **not** call handler or service functions directly from tests (e.g. no `userH.Signup(w, r)` or `userSvc.Signup(ctx, ...)`). Integration tests must go through the router and full request/response cycle.
+- Do not rely only on unit tests or mocks for new behavior.
+- Place integration tests in the project’s test layout (e.g. a dedicated `tests` or `integration` package, per project convention).
+
+## 3. Prefer `any` over `interface{}`
+
+Use the built-in `any` alias instead of `interface{}` for unconstrained type parameters or generic “any type” usage (Go 1.18+).
+
+```go
+// ❌ Avoid
+func Store(key string, value interface{}) error
+
+// ✅ Prefer
+func Store(key string, value any) error
+```
+
+Apply this in new code and when touching existing code that uses `interface{}`.
+
+## 4. No redundant HTTP method checks in handlers
+
+Do **not** add `if r.Method != http.MethodPost { ... method not allowed }` (or similar) inside a handler when the router already registers the route with that method (e.g. `v1.Handle("POST /signup", ...)`). The router ensures only POST reaches the handler, so the check is redundant. Omit method checks in handlers when the route definition already specifies the method.
+
+## 5. Prefer transactions and multiple rows over GSIs
+
+When designing data access (e.g. DynamoDB or similar):
+
+- Prefer **transactions** and **multiple rows** (e.g. denormalized copies or separate items) to satisfy read patterns rather than adding **Global Secondary Indexes (GSIs)**.
+- Use GSIs only when transactions or multi-row writes cannot reasonably satisfy the access pattern (e.g. high-volume query-by-attribute that must stay eventually consistent).
+- Favor transactional writes and a bit of duplication over extra indexes when the trade-off is acceptable.
+
+## 6. Keep the OpenAPI spec in sync with the API
+
+When adding or changing API behavior (new endpoints, request/response shapes, status codes, or route paths):
+
+- Update **`api/openapi.yaml`** so the spec matches the implementation. The spec is documentation-only (no code generation); the Go router and handlers remain the source of truth.
+- **New endpoint**: add the path, method, parameters/requestBody, response codes, and any new or reused schemas under `components/schemas`.
+- **Change to existing endpoint**: update the relevant path, schema, or response in the spec (e.g. new request field, new status code, changed response body).
+- Do not rely on the spec to generate server code; keep the spec as the documented contract for the API.
+
+## 7. Remove dead or speculative code
+
+Do **not** keep code “just in case” (e.g. unused helpers, deprecated paths, or “might need later” APIs). Remove dead code and speculative leftovers so the codebase stays lean and easy to follow. Prefer adding code again when a real use case appears over leaving unused code in place.
+
+## 8. Run tests with `make test`
+
+Run the test suite with **`make test`**. Do not invoke `go test` directly (e.g. `go test ./...`) unless you are debugging a specific package. The Makefile defines the canonical test command, flags, and environment (e.g. coverage, race detector, or CI settings).
