@@ -189,12 +189,12 @@ func TestFeed_ListPosts_Public(t *testing.T) {
 
 	session, _, err := signupWithPKCE(client, base, uniqueEmail(t), "password123", "web")
 	require.NoError(t, err)
-	_, err = postJSON(client, base, "/artists", `{"handle":"publicfeed","display_name":"Public","bio":""}`, session)
+	_, err = postJSON(client, base, "/artists", `{"handle":"testband","display_name":"Public","bio":""}`, session)
 	require.NoError(t, err)
-	_, err = postJSON(client, base, "/artists/publicfeed/posts", `{"title":"Public post","body":"Public post"}`, session)
+	_, err = postJSON(client, base, "/artists/testband/posts", `{"title":"Public post","body":"Public post"}`, session)
 	require.NoError(t, err)
 
-	resp, err := get(client, base, "/artists/publicfeed/posts", "")
+	resp, err := get(client, base, "/artists/testband/posts", "")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
