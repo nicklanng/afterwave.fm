@@ -29,11 +29,11 @@ type FollowingLister interface {
 
 type Service interface {
 	CreatePost(ctx context.Context, handle string, title, body, imageURL, youtubeURL string, explicit bool, actorUserID string) (*Post, error)
-	ListPosts(ctx context.Context, handle string, limit, from int) ([]Post, bool, error)
+	ListPosts(ctx context.Context, handle string, limit int, cursor string) ([]Post, string, error)
 	GetPost(ctx context.Context, handle, postID string) (*Post, error)
 	UpdatePost(ctx context.Context, handle, postID string, body, imageURL, youtubeURL *string, explicit *bool, actorUserID string) (*Post, error)
 	DeletePost(ctx context.Context, handle, postID string, actorUserID string) error
-	MyFeed(ctx context.Context, userID string, limit, from int) ([]Post, bool, error)
+	MyFeed(ctx context.Context, userID string, limit int, cursor string) ([]Post, string, error)
 }
 
 type Post struct {
@@ -130,46 +130,36 @@ func (s *service) CreatePost(ctx context.Context, handle string, title, body, im
 	return rowToPost(&row), nil
 }
 
-func (s *service) ListPosts(ctx context.Context, handle string, limit, from int) ([]Post, bool, error) {
+func (s *service) ListPosts(ctx context.Context, handle string, limit int, cursor string) ([]Post, string, error) {
 	handle = normalizeHandle(handle)
 	artist, err := s.artist.GetByHandle(ctx, handle)
 	if err != nil || artist == nil {
-		return nil, false, ErrArtistNotFound
+		return nil, "", ErrArtistNotFound
 	}
 	_ = artist
 	if limit <= 0 || limit > 100 {
 		limit = 10
 	}
-	if from < 0 {
-		from = 0
-	}
-	// Request from+limit+1 to detect if there are more results
-	byTimeRows, err := s.store.ListByTime(ctx, handle, from+limit+1)
+	byTimeRows, nextCursor, err := s.store.ListByTimePage(ctx, handle, limit, cursor)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 	if len(byTimeRows) == 0 {
-		return nil, false, nil
+		return nil, "", nil
 	}
-	hasMore := len(byTimeRows) > from+limit
-	end := from + limit
-	if end > len(byTimeRows) {
-		end = len(byTimeRows)
-	}
-	pageRows := byTimeRows[from:end]
-	postIDs := make([]string, len(pageRows))
-	for i := range pageRows {
-		postIDs[i] = pageRows[i].PostID
+	postIDs := make([]string, len(byTimeRows))
+	for i := range byTimeRows {
+		postIDs[i] = byTimeRows[i].PostID
 	}
 	rows, err := s.store.BatchGetPosts(ctx, handle, postIDs)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 	out := make([]Post, len(rows))
 	for i := range rows {
 		out[i] = *rowToPost(rows[i])
 	}
-	return out, hasMore, nil
+	return out, nextCursor, nil
 }
 
 func (s *service) GetPost(ctx context.Context, handle, postID string) (*Post, error) {
@@ -259,26 +249,25 @@ func truncateBody(s string, max int) string {
 }
 
 // MyFeed returns the collated feed for the user (posts from artists they follow), hydrated from DynamoDB.
-// It returns posts, hasMore (true if there are more results after this page), and error.
-func (s *service) MyFeed(ctx context.Context, userID string, limit, from int) ([]Post, bool, error) {
+// It returns posts, nextCursor (non-empty when more results exist), and error.
+func (s *service) MyFeed(ctx context.Context, userID string, limit int, cursor string) ([]Post, string, error) {
 	if s.following == nil || s.feedIndex == nil {
-		return nil, false, nil
+		return nil, "", nil
 	}
 	handles, err := s.following.ListFollowing(ctx, userID)
 	if err != nil || len(handles) == 0 {
-		return nil, false, err
+		return nil, "", err
 	}
 	// Request limit+1 to detect if there are more results
-	refs, err := s.feedIndex.SearchFeed(ctx, handles, limit+1, from)
+	refs, nextCursor, err := s.feedIndex.SearchFeed(ctx, handles, limit+1, cursor)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
-	hasMore := len(refs) > limit
-	if hasMore {
+	if len(refs) > limit {
 		refs = refs[:limit]
 	}
 	if len(refs) == 0 {
-		return nil, false, nil
+		return nil, "", nil
 	}
 	// Group refs by artist_handle for batch fetch
 	byHandle := make(map[string][]string)
@@ -290,7 +279,7 @@ func (s *service) MyFeed(ctx context.Context, userID string, limit, from int) ([
 	for handle, postIDs := range byHandle {
 		rows, err := s.store.BatchGetPosts(ctx, handle, postIDs)
 		if err != nil {
-			return nil, false, err
+			return nil, "", err
 		}
 		if postMap[handle] == nil {
 			postMap[handle] = make(map[string]*Post)
@@ -307,7 +296,7 @@ func (s *service) MyFeed(ctx context.Context, userID string, limit, from int) ([
 			out = append(out, *p)
 		}
 	}
-	return out, hasMore, nil
+	return out, nextCursor, nil
 }
 
 func rowToPost(r *postRow) *Post {

@@ -3,6 +3,7 @@ package search
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -97,12 +98,10 @@ type SearchFeedResult struct {
 }
 
 // SearchFeed returns post refs from the feed index: filter by artist_handle in handles, sort by created_at desc.
-func (f *FeedIndex) SearchFeed(ctx context.Context, artistHandles []string, size, from int) ([]SearchFeedResult, error) {
+// cursor is optional (opaque, from previous response next_cursor). nextCursor is non-empty when more results exist.
+func (f *FeedIndex) SearchFeed(ctx context.Context, artistHandles []string, size int, cursor string) ([]SearchFeedResult, string, error) {
 	if size <= 0 {
 		size = 20
-	}
-	if from < 0 {
-		from = 0
 	}
 	var query map[string]any
 	if len(artistHandles) == 0 {
@@ -112,49 +111,75 @@ func (f *FeedIndex) SearchFeed(ctx context.Context, artistHandles []string, size
 			"terms": map[string]any{"artist_handle": artistHandles},
 		}
 	}
+	// sort by created_at desc then _id asc for deterministic search_after cursor
+	sortSpec := []map[string]any{
+		{"created_at": map[string]string{"order": "desc"}},
+		{"_id": map[string]string{"order": "asc"}},
+	}
 	body := map[string]any{
 		"query":            query,
-		"sort":             []map[string]any{{"created_at": map[string]string{"order": "desc"}}},
+		"sort":             sortSpec,
 		"size":             size,
-		"from":             from,
 		"track_total_hits": true,
 		"_source":          []string{"post_id", "artist_handle", "created_at", "explicit"},
 	}
+	if cursor != "" {
+		var searchAfter []any
+		b, decErr := base64.StdEncoding.DecodeString(cursor)
+		if decErr != nil {
+			return nil, "", decErr
+		}
+		if jsonErr := json.Unmarshal(b, &searchAfter); jsonErr != nil {
+			return nil, "", jsonErr
+		}
+		body["search_after"] = searchAfter
+	}
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	url := f.os.BaseURL + "/" + f.index + "/_search"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(bodyBytes)), nil }
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := f.os.DoWithRetry(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("opensearch search: %d %s", resp.StatusCode, string(b))
+		return nil, "", fmt.Errorf("opensearch search: %d %s", resp.StatusCode, string(b))
 	}
 	var out struct {
 		Hits struct {
 			Hits []struct {
 				Source SearchFeedResult `json:"_source"`
+				Sort  []any            `json:"sort"`
 			} `json:"hits"`
 		} `json:"hits"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	results := make([]SearchFeedResult, 0, len(out.Hits.Hits))
-	for _, h := range out.Hits.Hits {
+	hits := out.Hits.Hits
+	results := make([]SearchFeedResult, 0, len(hits))
+	for _, h := range hits {
 		results = append(results, h.Source)
 	}
-	return results, nil
+	var next string
+	// When we got a full page (len == size), caller asked for limit+1 to detect more; cursor = sort of last item we return (hits[size-2]).
+	if len(hits) >= size && size >= 2 {
+		lastSort := hits[size-2].Sort
+		if len(lastSort) > 0 {
+			b, _ := json.Marshal(lastSort)
+			next = base64.StdEncoding.EncodeToString(b)
+		}
+	}
+	return results, next, nil
 }
 
 // EnsureIndex creates the feed index with mapping if it does not exist. Safe to call at startup.

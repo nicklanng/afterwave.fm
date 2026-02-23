@@ -62,7 +62,7 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(post)
 }
 
-// ListPosts returns posts for the artist (public), newest first. Paginated with limit (default 10), from (offset), and has_more.
+// ListPosts returns posts for the artist (public), newest first. Cursor-based pagination: limit (default 10), cursor (from previous next_cursor), has_more, next_cursor.
 func (h *Handler) ListPosts(w http.ResponseWriter, r *http.Request) {
 	handle := r.PathValue("handle")
 	if handle == "" {
@@ -71,19 +71,14 @@ func (h *Handler) ListPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	limit := 10
-	from := 0
 	if s := r.URL.Query().Get("limit"); s != "" {
 		if n, err := strconv.Atoi(s); err == nil && n > 0 && n <= 100 {
 			limit = n
 		}
 	}
-	if s := r.URL.Query().Get("from"); s != "" {
-		if n, err := strconv.Atoi(s); err == nil && n >= 0 {
-			from = n
-		}
-	}
+	cursor := r.URL.Query().Get("cursor")
 
-	list, hasMore, err := h.svc.ListPosts(r.Context(), handle, limit, from)
+	list, nextCursor, err := h.svc.ListPosts(r.Context(), handle, limit, cursor)
 	if err != nil {
 		if err == ErrArtistNotFound {
 			http.Error(w, "not found", http.StatusNotFound)
@@ -96,8 +91,12 @@ func (h *Handler) ListPosts(w http.ResponseWriter, r *http.Request) {
 		list = []Post{}
 	}
 
+	out := map[string]any{"posts": list, "has_more": nextCursor != ""}
+	if nextCursor != "" {
+		out["next_cursor"] = nextCursor
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"posts": list, "has_more": hasMore})
+	json.NewEncoder(w).Encode(out)
 }
 
 // GetPost returns a single post (public).
@@ -162,7 +161,7 @@ func (h *Handler) UpdatePost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(post)
 }
 
-// MyFeed returns the collated feed for the current user (posts from artists they follow).
+// MyFeed returns the collated feed for the current user (posts from artists they follow). Cursor-based pagination.
 func (h *Handler) MyFeed(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 	if userID == "" {
@@ -170,18 +169,13 @@ func (h *Handler) MyFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit := 10
-	from := 0
 	if s := r.URL.Query().Get("limit"); s != "" {
 		if n, err := strconv.Atoi(s); err == nil && n > 0 && n <= 100 {
 			limit = n
 		}
 	}
-	if s := r.URL.Query().Get("from"); s != "" {
-		if n, err := strconv.Atoi(s); err == nil && n >= 0 {
-			from = n
-		}
-	}
-	list, hasMore, err := h.svc.MyFeed(r.Context(), userID, limit, from)
+	cursor := r.URL.Query().Get("cursor")
+	list, nextCursor, err := h.svc.MyFeed(r.Context(), userID, limit, cursor)
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -189,8 +183,12 @@ func (h *Handler) MyFeed(w http.ResponseWriter, r *http.Request) {
 	if list == nil {
 		list = []Post{}
 	}
+	out := map[string]any{"posts": list, "has_more": nextCursor != ""}
+	if nextCursor != "" {
+		out["next_cursor"] = nextCursor
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"posts": list, "has_more": hasMore})
+	json.NewEncoder(w).Encode(out)
 }
 
 // DeletePost deletes a post (owner only).

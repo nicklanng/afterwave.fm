@@ -2,10 +2,16 @@ package feed
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/guregu/dynamo/v2"
 
 	"github.com/sopatech/afterwave.fm/internal/infra"
@@ -140,17 +146,77 @@ func (s *Store) Get(ctx context.Context, handle, postID string) (*postRow, error
 	return &row, nil
 }
 
-// ListByTime returns post refs (post_id, created_at) from the BYTIME index, newest first.
-func (s *Store) ListByTime(ctx context.Context, handle string, limit int) ([]postByTimeRow, error) {
+// listByTimeCursor is the opaque cursor format: base64(json({p: pk, s: sk})).
+func encodeListByTimeCursor(pk, sk string) string {
+	b, _ := json.Marshal(struct {
+		P string `json:"p"`
+		S string `json:"s"`
+	}{pk, sk})
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+func decodeListByTimeCursor(cursor string) (pk, sk string, err error) {
+	b, err := base64.StdEncoding.DecodeString(cursor)
+	if err != nil {
+		return "", "", err
+	}
+	var v struct {
+		P string `json:"p"`
+		S string `json:"s"`
+	}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return "", "", err
+	}
+	return v.P, v.S, nil
+}
+
+// ListByTimePage returns post refs from the BYTIME index, newest first, using cursor-based pagination.
+// cursor is optional (empty for first page). nextCursor is non-empty when more results exist.
+func (s *Store) ListByTimePage(ctx context.Context, handle string, limit int, cursor string) ([]postByTimeRow, string, error) {
 	handle = normalizeHandle(handle)
 	pk := artistPK(handle)
-	var out []postByTimeRow
-	iter := s.tbl().Get("pk", pk).Range("sk", dynamo.BeginsWith, postByTimePrefix).Order(dynamo.Descending).Limit(limit).Iter()
-	var row postByTimeRow
-	for iter.Next(ctx, dynamo.AWSEncoding(&row)) {
-		out = append(out, row)
+	var startKey map[string]types.AttributeValue
+	if cursor != "" {
+		decodedPk, decodedSk, err := decodeListByTimeCursor(cursor)
+		if err != nil {
+			return nil, "", err
+		}
+		startKey = map[string]types.AttributeValue{
+			"pk": &types.AttributeValueMemberS{Value: decodedPk},
+			"sk": &types.AttributeValueMemberS{Value: decodedSk},
+		}
 	}
-	return out, iter.Err()
+	req := &dynamodb.QueryInput{
+		TableName:              aws.String(s.tableName),
+		KeyConditionExpression: aws.String("pk = :pk AND begins_with(sk, :prefix)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk":     &types.AttributeValueMemberS{Value: pk},
+			":prefix": &types.AttributeValueMemberS{Value: postByTimePrefix},
+		},
+		ScanIndexForward: aws.Bool(false),
+		Limit:            aws.Int32(int32(limit + 1)),
+		ExclusiveStartKey: startKey,
+	}
+	out, err := s.db.Client().Query(ctx, req)
+	if err != nil {
+		return nil, "", err
+	}
+	rows := make([]postByTimeRow, 0, len(out.Items))
+	for _, item := range out.Items {
+		var row postByTimeRow
+		if err := attributevalue.UnmarshalMap(item, &row); err != nil {
+			return nil, "", err
+		}
+		rows = append(rows, row)
+	}
+	var next string
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
+		last := rows[limit-1]
+		next = encodeListByTimeCursor(last.PK, last.SK)
+	}
+	return rows, next, nil
 }
 
 // Update updates the main post row (body, image_url, youtube_url, explicit, updated_at).

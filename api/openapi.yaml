@@ -338,7 +338,7 @@ paths:
     get:
       tags: [Artists]
       summary: List posts
-      description: Public. Returns posts for the artist, newest first. Paginated like my feed (default limit 10, has_more).
+      description: Public. Returns posts for the artist, newest first. Cursor-based pagination; use next_cursor from the response as the cursor query param for the next page.
       operationId: listPosts
       parameters:
         - $ref: '#/components/parameters/Handle'
@@ -350,13 +350,11 @@ paths:
             maximum: 100
             default: 10
             description: Page size
-        - name: from
+        - name: cursor
           in: query
           schema:
-            type: integer
-            minimum: 0
-            default: 0
-            description: Pagination offset
+            type: string
+            description: Opaque cursor from previous response next_cursor for the next page
       responses:
         '200':
           description: OK
@@ -373,6 +371,9 @@ paths:
                   has_more:
                     type: boolean
                     description: True if more results exist after this page
+                  next_cursor:
+                    type: string
+                    description: Opaque cursor for the next page; only present when has_more is true
         '404':
           description: Not found
 
@@ -515,7 +516,7 @@ paths:
     get:
       tags: [Feed]
       summary: My feed
-      description: Collated feed of posts from artists the user follows. Requires OpenSearch feed index.
+      description: Collated feed of posts from artists the user follows. Cursor-based pagination; use next_cursor as the cursor param for the next page. Requires OpenSearch feed index.
       operationId: getMyFeed
       security:
         - bearerAuth: []
@@ -529,13 +530,11 @@ paths:
             maximum: 100
             default: 10
             description: Page size
-        - name: from
+        - name: cursor
           in: query
           schema:
-            type: integer
-            minimum: 0
-            default: 0
-            description: Pagination offset
+            type: string
+            description: Opaque cursor from previous response next_cursor for the next page
       responses:
         '200':
           description: OK
@@ -552,6 +551,9 @@ paths:
                   has_more:
                     type: boolean
                     description: True if more results exist after this page
+                  next_cursor:
+                    type: string
+                    description: Opaque cursor for the next page; only present when has_more is true
         '401':
           description: Unauthorized
 

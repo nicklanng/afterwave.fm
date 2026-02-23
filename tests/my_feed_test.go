@@ -155,7 +155,7 @@ func TestMyFeed_Paginated_ChronologicalOrder(t *testing.T) {
 
 	time.Sleep(3 * time.Second) // allow indexed docs to be searchable
 
-	feedResp1, err := get(client, base, "/feed?limit="+strconv.Itoa(pageSize)+"&from=0", fanSession)
+	feedResp1, err := get(client, base, "/feed?limit="+strconv.Itoa(pageSize), fanSession)
 	require.NoError(t, err)
 	defer feedResp1.Body.Close()
 	require.Equal(t, http.StatusOK, feedResp1.StatusCode)
