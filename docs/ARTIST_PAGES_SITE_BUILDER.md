@@ -4,6 +4,15 @@
 
 See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core product that drives artist subscriptions.
 
+## Implementation checklist
+
+- Branding: display name, handle (lowercase), logo, cover image, accent colour(s)
+- Sections: which sections show, in what order (Bio, Feed, Music, Photos, Gigs, Support, Links)
+- Visibility: show/hide per section; default order for new pages
+- Single-column stack in v1; no raw layout/columns yet
+- Domain: subdomain {handle}.afterwave.fm; custom domain TBD
+- Owner and invitees with "site" or "full admin" can edit builder
+
 ---
 
 ## Approach

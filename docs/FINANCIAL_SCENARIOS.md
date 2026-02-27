@@ -4,6 +4,12 @@ All numbers are monthly.
 Currency: USD.  
 These are directional estimates for planning — not accounting-grade forecasts.
 
+## Implementation checklist
+
+- Assumptions and model documented (this doc)
+- Use for planning and runway scenarios; update as pricing/costs change
+- N/A — planning doc; no code implementation
+
 ---
 
 # Core Assumptions

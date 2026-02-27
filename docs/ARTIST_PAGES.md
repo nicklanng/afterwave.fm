@@ -4,6 +4,21 @@ What an artist page is, what’s on it, and how it works. For who can view or ma
 
 **Component design docs:** Each core component below has its own design document. This is the main product that drives artist subscriptions; deeper design lives in those docs.
 
+## Implementation checklist
+
+- ~~Artist page model: user creates page; public view; handle.afterwave.fm~~
+- ~~Artists API: create, get by handle, update, delete; posts (feed) CRUD~~
+- ~~Collated feed (GET /feed) for signed-in users from followed artists~~
+- Site builder: sections, order, branding (display name, handle, logo, cover, colours)
+- Content feed: posts (text, images, YouTube); guidelines + explicit flag on form
+- Notifications: opt-in "notify me"; bell + badge; collated feed; no email export to artists
+- Music: uploads, track limits per tier; full listen/download signed-in; optional preview for anonymous
+- Photo gallery: collections; event-linked; user submissions with artist approval
+- Gig calendar: upcoming gigs on page; collated calendar for followed artists
+- Support: tips (anonymous/attributed), recurring subscribe to artist; merch links only
+- Upload guidelines and explicit option on music, feed, photo flows
+- Invited members and configurable roles (owner, full admin, content roles)
+
 ---
 
 ## What an artist page is

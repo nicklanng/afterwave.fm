@@ -2,6 +2,21 @@
 
 Design for accounts, artist pages, and who can do what.
 
+## Implementation checklist
+
+- ~~Sign-up and login (email/password) — API: POST /auth/signup, POST /auth/login~~
+- ~~Sign in with Google — redirect to Cognito Hosted UI; callback issues our tokens~~
+- ~~Sign in with Apple — same flow as Google~~
+- ~~One account, multiple sign-in methods (link Google/Apple to existing account)~~
+- ~~API contract: session token + refresh token (POST /auth/token, POST /auth/refresh)~~
+- ~~Short-lived session, long-lived refresh, rolling refresh, linked in DB~~
+- ~~Logout — POST /auth/logout; revoke session~~
+- ~~GET /users/me (protected); DELETE /account~~
+- Access control: viewing artist pages public (no sign-up wall)
+- Full listening and downloads require signed-in user (enforced at stream/download issue)
+- Tipping: one-off anonymous or attributed; no sign-in required for anonymous
+- Artist page administration: owner, invited members, configurable roles, invitation flow
+
 ---
 
 ## Account model

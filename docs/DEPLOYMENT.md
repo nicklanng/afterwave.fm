@@ -2,6 +2,18 @@
 
 How we build, test, and ship the application and infrastructure. Architecture (what we run) is in [Architecture](./ARCHITECTURE.md). Vision caps team size; deployment should be operable by that team without heavy orchestration.
 
+## Implementation checklist
+
+- ~~Make test (or equivalent) for API tests~~
+- ~~Local dev: API + optional frontend; DynamoDB Local / env config~~
+- CI/CD: GitHub Actions — build, test, lint on push/PR
+- Deploy: Docker image → ECR; ECS Fargate; ALB; Terraform for infra
+- Secrets: AWS Secrets Manager; no secrets in repo
+- Staging and production environments; branch/tag strategy
+- Health check endpoint for ALB/orchestrator
+- Monitoring: Grafana Cloud (or equivalent); logs, metrics, alerts
+- Rollback: redeploy previous ECS task definition
+
 ---
 
 ## Environments

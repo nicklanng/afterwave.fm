@@ -2,6 +2,15 @@
 
 This policy defines how AI is used in the development and operation of Afterwave.fm.
 
+## Implementation checklist
+
+- No AI-created assets for the site (images, copy, creative content)
+- No use of platform data to train or feed AI
+- AI for development assistance only (coding, docs, refactoring)
+- Moderation first-pass (future): AI flags for human review only; document in this policy
+
+---
+
 ## What we do not use AI for
 
 - **No AI-created assets for the site.** All visual assets, copy, and creative content are made by humans. No AI-generated images, logos, illustrations, or marketing copy.

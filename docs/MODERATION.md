@@ -2,6 +2,16 @@
 
 Content policy, reporting, and how we handle violations. We operate with a small team (per [Vision](./VISION.md)); moderation is in scope for “community health” but we can’t run a 24/7 review floor. We aim to be **transparent** and **trusted by musicians**.
 
+## Implementation checklist
+
+- Content policy: human-made only; no illegal, harassment, hate speech, impersonation, porn
+- Explicit flag and age-gating for music, posts; minors protected (no stranger DMs when we add DMs)
+- Reporting: signed-in only; report content (type, URL, reason); triage and review
+- Moderation log: audit trail of created/updated content for proactive and reactive review
+- Takedowns: platform removal; warnings; immediate takedown; suspension
+- Copyright/DMCA-style: notice-and-takedown; counter-notice; repeat infringer
+- Appeals: right to appeal; form/email; different reviewer; timeline and outcome
+
 ---
 
 ## Scope

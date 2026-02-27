@@ -2,6 +2,14 @@
 
 Optional subscription for users to support the platform. Distinct from subscribing to an artist. We use Stripe (same as [Payments](./PAYMENTS.md)); we receive this revenue.
 
+## Implementation checklist
+
+- Signed-in user can subscribe to support the platform (Stripe Billing)
+- Supporter badge (flair on profile, comments)
+- Supporter blog: user can publish blog on profile (reviews, links to artists)
+- Personal photo gallery for supporters (photos with links to artists)
+- Price(s), billing interval, single vs multiple tiers — TBD
+
 ---
 
 ## Who and what

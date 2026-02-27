@@ -4,6 +4,14 @@ How tips and recurring subscriptions appear on the artist page and in the artist
 
 See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core product that drives artist subscriptions.
 
+## Implementation checklist
+
+- Support section on artist page: tip button (one-off, anonymous or attributed), subscribe button (recurring, signed-in)
+- Merch: link out only; no checkout
+- Artist dashboard: tips list (anonymous/attributed), recurring subscribers list, payouts summary/link
+- User account: payment history (tips, artist subs, platform sub); current artist subscriptions list + cancel
+- Stripe Connect for tips and recurring; fee handling and transparency (see Payments)
+
 ---
 
 ## On the artist page (fan view)

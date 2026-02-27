@@ -6,6 +6,16 @@ See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core prod
 
 Data ownership and privacy (we own sign-up data; we don’t expose emails to artists) are in [Data and privacy](./DATA_AND_PRIVACY.md).
 
+## Implementation checklist
+
+- Opt-in "notify me" on artist page (signed-in only); store user ↔ artist subscription
+- Triggers: new feed post (yes); new track/gig (optional); configurable
+- Artists see aggregate counts only; trigger via "Publish" or explicit "Notify subscribers"
+- Main page: collated feed of updates from followed artists (chronological)
+- Bell icon with badge (unread count); notification list; mark read behaviour
+- Optional email delivery; platform sends, no email list to artists
+- Unsubscribe per artist; global email off in account settings TBD
+
 ---
 
 ## Core idea

@@ -2,6 +2,17 @@
 
 Who owns what data; how we handle export, deletion, and privacy. We don’t sell data or use it for ad targeting (per [Vision](./VISION.md)).
 
+## Implementation checklist
+
+- Notification sign-ups: platform owns data; do not expose emails to artists; aggregate counts only
+- User data: store account, follows, notification subs, block list, payment history
+- User export: profile, follows, notification subs, block list, payment history (machine-readable)
+- Blocking: users can block artists/users; hide blocked content in discovery, feed, everywhere
+- Account deletion: remove personal data; user choice for comments and uploaded content
+- Sleep mode: hide name/details; content remains; reversible
+- Artist data: content ownership; artist export (content only, no subscriber list)
+- Retention policy; payment/tax records per legal requirement
+
 ---
 
 ## Scope

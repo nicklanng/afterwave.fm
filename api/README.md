@@ -2,6 +2,13 @@
 
 This directory contains the **OpenAPI 3** specification for the Afterwave.fm API. The spec is **documentation-only**: the server is implemented in Go and this file is not used to generate any code. When the API changes, update `openapi.yaml` by hand to keep docs in sync.
 
+## Implementation checklist
+
+- ~~OpenAPI spec covers implemented routes (auth, users, artists, feed, following)~~
+- Keep spec in sync when adding or changing endpoints (see project rules)
+
+---
+
 ## Viewing the docs
 
 You can view the spec with any OpenAPI-compatible viewer without generating or running server code:

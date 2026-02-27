@@ -4,6 +4,14 @@
 
 See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core product that drives artist subscriptions.
 
+## Implementation checklist
+
+- ~~Post CRUD: create, list, get, update, delete (owner/feed role)~~
+- Guidelines section and explicit option on post form
+- Post types: text (Markdown), images (hosted), YouTube embeds
+- Chronological ordering; pagination or infinite scroll
+- Edit/delete permissions; "Edited" or last-edited time TBD
+
 ---
 
 ## Post creation (upload flow)

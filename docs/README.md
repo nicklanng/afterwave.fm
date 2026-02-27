@@ -2,6 +2,12 @@
 
 Documentation for the Afterwave.fm application.
 
+## Implementation checklist
+
+Implementation checklists (with completed items struck through) are at the top of each design doc below. See individual docs for details.
+
+---
+
 ## Contents
 
 ### Core product

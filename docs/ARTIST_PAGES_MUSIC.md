@@ -4,6 +4,16 @@
 
 See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core product that drives artist subscriptions.
 
+## Implementation checklist
+
+- Upload flow: tracks/albums; owner + "music" role; track limits per subscription tier
+- Guidelines and explicit option on upload page; age-gate explicit content
+- Format/specs: file types, max size, metadata (title, album, cover art)
+- Same track in multiple releases counts once toward limit
+- Display: Music section on page; releases with cover art and track list
+- Signed-in: full stream/download; anonymous: no full tracks; optional preview clips
+- API and player app integration for catalog and download URLs
+
 ---
 
 ## Upload flow (tracks / albums)

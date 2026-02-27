@@ -4,6 +4,14 @@ Architecture for optional, privacy-first advertising on Afterwave.fm: light ad l
 
 See [Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md), [Sign-up and auth](./SIGNUP_AND_AUTH.md), [Financial scenarios](./FINANCIAL_SCENARIOS.md), and [Architecture](./ARCHITECTURE.md) for context.
 
+## Implementation checklist
+
+- Light ad load (pre-roll, limited mid-roll; caps per user per month)
+- Brand-safe categories only; no tracking or personal profiling; no data selling
+- Region targeting (coarse IP); supporters ad-free
+- Ad decision API and fill path; reporting and billing (aggregate, manual invoicing Phase 1)
+- Rollout after core product and supporter tier in place
+
 ---
 
 ## 1. Overview

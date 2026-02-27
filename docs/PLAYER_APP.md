@@ -4,6 +4,15 @@ Download-focused player for web, mobile, and desktop. We don’t stream through 
 
 See [Architecture](./ARCHITECTURE.md) for API, auth, and presigned URLs. See [Sign-up and auth](./SIGNUP_AND_AUTH.md) for token model.
 
+## Implementation checklist
+
+- Player app codebase (separate from website)
+- Web + desktop: React + Electron; same UI and logic
+- Mobile: React Native + Expo (iOS, Android) for background/lock screen
+- Auth clients per platform: web, desktop, iOS, Android (same API, different storage)
+- GET /v1/tracks/:id/download-url or stream-url; presigned URL from API
+- Offline: download to device; play from local storage; library sync via API
+
 ---
 
 ## Player app vs website (different codebases)

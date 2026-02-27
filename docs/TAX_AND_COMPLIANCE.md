@@ -4,6 +4,16 @@ As **merchant of record** we are responsible for collecting and remitting tax on
 
 See [Payments](./PAYMENTS.md) for how we collect revenue (Stripe). See [Vision](./VISION.md) for our stance on clear pricing and no hidden fees.
 
+## Implementation checklist
+
+- Incorporate (e.g. UK limited company); engage accountant
+- Register for sales tax (UK VAT, EU OSS when applicable, US state when nexus)
+- Enable Stripe Tax; add registration numbers; collect customer location at checkout
+- File returns and remit on schedule; keep records 7 years
+- Invoices/receipts where required
+- Document retention policy; assign who prepares filings
+- When Connect (artist payouts): confirm reporting and tax form requirements
+
 ---
 
 ## Plain English summary

@@ -2,6 +2,17 @@
 
 Conventions for Go code in this project. Follow [Effective Go](https://go.dev/doc/effective_go) and the [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments); this doc adds project-specific choices.
 
+## Implementation checklist
+
+- ~~Layout: cmd/, internal/; no src/~~
+- ~~Naming: short packages, snake_case files, small interfaces~~
+- ~~Config: envconfig, required vars, fail fast~~
+- ~~Logging: slog, structured, request context~~
+- ~~HTTP: handlers on struct, router in internal/http~~
+- ~~Errors: wrap with %w; sentinels where needed~~
+- ~~Tests: make test; integration over HTTP~~
+- Dependencies: minimal; prefer stdlib; no replace in go.mod
+
 ---
 
 ## Layout

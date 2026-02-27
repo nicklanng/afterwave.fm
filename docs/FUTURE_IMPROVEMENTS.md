@@ -2,6 +2,11 @@
 
 Backlog of technical and product improvements we may do later.
 
+## Implementation checklist
+
+- OpenSearch indexing via SQS (decouple write path from search; worker or Lambda consumes queue)
+- (Add further items as backlog grows)
+
 ---
 
 ## OpenSearch indexing via SQS (decouple write path from search)

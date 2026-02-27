@@ -2,6 +2,15 @@
 
 How money moves: artist subscription fee, tips, recurring artist subs, platform (fan) subscription, and payouts to artists.
 
+## Implementation checklist
+
+- Artist subscription (platform fee): Stripe Billing; tiers $10 / $20 / $50; track limits 25 / 100 / unlimited
+- Recurring fan → artist subscriptions: Stripe Connect; 100% to artist; signed-in only
+- Platform (fan) subscription: Stripe; supporter benefits (badge, blog, gallery)
+- Tips: one-off; anonymous or attributed; Stripe Connect; no platform cut
+- Payouts to artists: Connect Standard/Express; weekly transfer; fee deducted from payout
+- Invoices/receipts; currency (USD); Stripe Tax for sales tax
+
 ---
 
 ## Artist subscription (platform fee)

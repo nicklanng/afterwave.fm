@@ -2,6 +2,16 @@
 
 How users find artists: location, genre, search, and ranking.
 
+## Implementation checklist
+
+- Artist location: hierarchical (country, state/region, town); store and filter
+- Genres: fixed list; parent + subgenres; artist picks limited number
+- Search and filter: location, genre, free-text (artist name, handle, bio)
+- OpenSearch: discovery index; sync from DynamoDB; query for browse/search
+- Ranking/sort: relevance, followers, last activity, newest, alphabetical
+- Block list: exclude blocked artists/users from discovery for signed-in user
+- Charts (download/listen) — optional; signed-in activity only
+
 ---
 
 ## Artist location

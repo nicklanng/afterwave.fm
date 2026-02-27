@@ -4,6 +4,14 @@
 
 See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core product that drives artist subscriptions.
 
+## Implementation checklist
+
+- Collections: create, name, optionally link to gig event; optional "post to feed" on create
+- Artist uploads: owner + "photos" role; bulk upload; ordering within collection
+- Guidelines (and optional mature/explicit) on upload form
+- User-submitted photos: link to event; artist approval before public
+- Display: grid or masonry; lightbox/full-size; tie-in with supporter personal gallery TBD
+
 ---
 
 ## Collections

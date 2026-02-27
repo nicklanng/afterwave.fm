@@ -2,6 +2,16 @@
 
 What we build first, what we defer. **Fill this in last** — after the rest of the product is designed — so we can decide MVP from a complete picture.
 
+## Implementation checklist
+
+- ~~Auth (sign-up, login, tokens, refresh, logout)~~
+- ~~Artist page basics (create, get, update, delete; posts CRUD)~~
+- ~~Following and collated feed (GET /feed)~~
+- Payments (artist sub, tips, recurring, payouts)
+- Discovery (location, genre, search)
+- Player app; platform fan sub; advanced site builder; collated gig calendar; notifications
+- MVP feature list and launch definition — open
+
 ---
 
 ## Scope

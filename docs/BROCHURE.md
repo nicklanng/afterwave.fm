@@ -2,6 +2,12 @@
 
 Copy for the prospective-artist brochure. Use `--- PAGE N ---` as page breaks in InDesign. Headings are marked for styling (e.g. H1, H2, body).
 
+## Implementation checklist
+
+- Copy drafted (this doc)
+- Layout and design in InDesign (or equivalent) — TBD
+- Final sign-off and print/web export — TBD
+
 ---
 
 ## PAGE 1 — Cover

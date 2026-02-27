@@ -4,6 +4,14 @@
 
 See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core product that drives artist subscriptions.
 
+## Implementation checklist
+
+- Gig (event) fields: venue, location, date, time, timezone, link, notes
+- Add/edit/delete: owner + "gigs" role; past gigs hidden or archived
+- Display on artist page: Gigs section; chronological (soonest first)
+- Collated calendar: signed-in users see all gigs from followed artists in one view
+- API: list gigs per artist; list my (collated) gigs for feed/calendar page
+
 ---
 
 ## Purpose

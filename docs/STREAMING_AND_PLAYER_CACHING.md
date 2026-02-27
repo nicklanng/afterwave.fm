@@ -4,6 +4,15 @@ Architecture for chunked streaming, local caching, and cost-controlled playback 
 
 See [Architecture](./ARCHITECTURE.md), [Player app](./PLAYER_APP.md), and [Sign-up and auth](./SIGNUP_AND_AUTH.md) for context.
 
+## Implementation checklist
+
+- Packaging pipeline: ingest → transcode Opus 64/128 → HLS fMP4 4s segments → S3; store segment sizes
+- Signed URL / cookie issuance: GET /v1/tracks/:id/stream (supporter) and segment-range (free tier)
+- Client HLS playback: load master playlist, select variant, request segments from CloudFront
+- Client caching: disk cache, LRU eviction, max size, commit at 70% play or Save
+- Free-tier monthly byte cap: DynamoDB usage, enforce at issue time, idempotent segment-range
+- Abuse controls: API rate limits (stream-issue per user/IP); logging and dashboards
+
 ---
 
 ## 1. Overview

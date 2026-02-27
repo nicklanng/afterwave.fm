@@ -2,6 +2,20 @@
 
 High-level technical shape: surfaces, stack, auth, storage, providers, and global design. Deployment is in [Deployment](./DEPLOYMENT.md). Go style is in [Go style guide](./GO_STYLE.md).
 
+## Implementation checklist
+
+- ~~Backend: Go API with stdlib net/http, slog, envconfig~~
+- ~~Auth: short-lived session + long-lived refresh tokens; rolling refresh; linked in DB~~
+- ~~DynamoDB: single-table design; PK domain prefix (USERS, ARTISTS, SESSIONS, etc.)~~
+- ~~Artists: create, get by handle, update, delete; public get, protected mutate~~
+- ~~Feed (posts): create, list, get, update, delete per artist~~
+- ~~Following: follow, unfollow, list; GET /feed (collated feed from followed artists)~~
+- Website: React + Vite + Bun (www + artist pages) — frontend TBD
+- Player app: separate codebase (web, desktop Electron, mobile React Native + Expo) — TBD
+- OpenSearch: discovery index and feed index — TBD
+- S3/CloudFront: presigned URLs for media; no stream through API — TBD
+- Health endpoint (GET /health or /live) — TBD
+
 ---
 
 ## Surfaces and domains

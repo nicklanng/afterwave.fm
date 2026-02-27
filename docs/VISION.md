@@ -1,5 +1,16 @@
 # Afterwave.fm — Vision
 
+## Implementation checklist
+
+- ~~Core API and auth (sign-up, login, tokens, artists, feed, following)~~
+- Artist pages: site builder, feed, notifications, music, photos, gigs, support (see [Artist pages](./ARTIST_PAGES.md))
+- Discovery: location, genre, search, ranking
+- Player app: download-focused; web, desktop, mobile
+- Payments: artist subscription, tips, recurring fan→artist, platform fan sub, payouts
+- No paywall on content; voluntary support only; no cut of artist income
+
+---
+
 ## Product Overview
 
 Afterwave.fm is a competitor to **Spotify** and **Bandcamp**, and operates in the broader space of music stores and artist platforms. The core difference: **nothing is paywalled**. All music, posts, and content are free for everyone. Artists are supported by voluntary donations, subscriptions, merch, and gigs — not by gatekeeping access.
