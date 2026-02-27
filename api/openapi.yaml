@@ -2,8 +2,9 @@ openapi: 3.0.3
 info:
   title: Afterwave.fm API
   description: |
-    REST API for Afterwave.fm. Authentication uses Authorization Code + PKCE;
-    no client secret. Session can be sent via Cookie or Authorization Bearer.
+    REST API for Afterwave.fm. Identity is backed by AWS Cognito User Pools (email/password
+    and optional federated sign-in with Google and Apple). Authentication uses Authorization
+    Code + PKCE; no client secret for app clients. Session can be sent via Cookie or Authorization Bearer.
   version: 1.0.0
 
 servers:
@@ -44,9 +45,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthCodeResponse'
         '400':
-          description: Bad request (e.g. invalid body, validation error)
-        '409':
-          description: Email already registered
+          description: Bad request (e.g. invalid body, validation error, or signup not allowed)
 
   /auth/login:
     post:
@@ -144,6 +143,190 @@ paths:
           description: No content
         '401':
           description: Unauthorized
+
+  /auth/google:
+    get:
+      tags: [Auth]
+      summary: Sign in with Google
+      description: |
+        Redirects to Cognito Hosted UI with Google as the identity provider. Call with
+        client_id and code_challenge (and optionally code_challenge_method) in the query;
+        these are stored in a cookie and used when Cognito redirects back to the callback.
+        After the user signs in with Google, Cognito redirects to the callback URL with
+        code and state only; the callback reads PKCE params from the cookie and issues
+        our authorization code. The client then exchanges it via POST /auth/token (PKCE).
+        Requires COGNITO_HOSTED_UI_DOMAIN and COGNITO_CALLBACK_URL to be configured.
+      operationId: authGoogle
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Our client ID (e.g. web) for issuing the authorization code after callback
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+          description: PKCE code challenge (S256) for the authorization code to be issued
+        - name: code_challenge_method
+          in: query
+          schema:
+            type: string
+            enum: [S256]
+            default: S256
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: Optional client state; if OAUTH_STATE_SECRET is set, server generates and validates CSRF state.
+      responses:
+        '302':
+          description: Redirect to Cognito Hosted UI
+        '400':
+          description: client_id and code_challenge required for federated login
+        '501':
+          description: Federated login not configured
+
+  /auth/apple:
+    get:
+      tags: [Auth]
+      summary: Sign in with Apple
+      description: |
+        Redirects to Cognito Hosted UI with Apple as the identity provider. Same as
+        /auth/google; pass client_id and code_challenge (and optionally code_challenge_method)
+        in the query. After callback the client exchanges the returned authorization code
+        via POST /auth/token (PKCE).
+      operationId: authApple
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code_challenge_method
+          in: query
+          schema:
+            type: string
+            enum: [S256]
+            default: S256
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to Cognito Hosted UI
+        '400':
+          description: client_id and code_challenge required for federated login
+        '501':
+          description: Federated login not configured
+
+  /auth/link/google:
+    get:
+      tags: [Auth]
+      summary: Link Google account (requires auth)
+      description: |
+        For an authenticated user, starts the flow to link a Google identity to their account.
+        Redirects to Cognito Hosted UI with Google as the identity provider. Optional state
+        query param is ignored; the server generates and validates its own state (requires
+        OAUTH_STATE_SECRET). On return to the callback, the Google identity is linked so the
+        user can sign in with Google in future. Redirects to FRONTEND_REDIRECT_URI with
+        linked=1 on success or error=already_linked if that identity is linked to another account.
+      operationId: authLinkGoogle
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to Cognito Hosted UI
+        '401':
+          description: Unauthorized (must be signed in)
+        '501':
+          description: Federated login not configured or OAUTH_STATE_SECRET not set
+
+  /auth/link/apple:
+    get:
+      tags: [Auth]
+      summary: Link Apple account (requires auth)
+      description: |
+        Same as /auth/link/google but for Apple. Links the Apple identity to the
+        authenticated user so they can sign in with Apple in future.
+      operationId: authLinkApple
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to Cognito Hosted UI
+        '401':
+          description: Unauthorized (must be signed in)
+        '501':
+          description: Federated login not configured or OAUTH_STATE_SECRET not set
+
+  /auth/callback:
+    get:
+      tags: [Auth]
+      summary: OAuth callback (Google/Apple)
+      description: |
+        Callback URL for Cognito Hosted UI. Cognito redirects here with code and state only.
+        Handles two flows. (1) Login flow — started via GET /auth/google or /auth/apple with
+        client_id and code_challenge; the server exchanges the code, validates the ID token,
+        finds or creates the user (or returns 409 if account exists with password), and issues
+        our authorization code. (2) Link flow — started via GET /auth/link/google or /auth/link/apple
+        while authenticated; the server links the IdP identity to the current user and redirects
+        with linked=1 or error=already_linked. If FRONTEND_REDIRECT_URI is set, redirects there
+        with the code or link result in the query; otherwise returns JSON.
+      operationId: authCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Authorization code from Cognito
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK; JSON with authorization_code (when FRONTEND_REDIRECT_URI is not set)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authorization_code:
+                    type: string
+        '302':
+          description: Redirect to FRONTEND_REDIRECT_URI with code in query (login) or linked=1 / error=already_linked (link flow)
+        '400':
+          description: Missing code, invalid state, or missing PKCE params (start federated login with client_id and code_challenge)
+        '401':
+          description: Token exchange or ID token validation failed
+        '409':
+          description: Account already exists with email and password; use password login (federated login only)
+        '500':
+          description: Internal error or failed to link account (link flow)
+        '501':
+          description: Federated login not configured
 
   # --- Users ---
   /users/me:
@@ -629,7 +812,7 @@ components:
           type: string
         code:
           type: string
-          description: Authorization code from /auth/signup or /auth/login
+          description: Authorization code from POST /auth/signup, POST /auth/login, or GET /auth/callback (after federated sign-in)
         code_verifier:
           type: string
           description: PKCE code verifier

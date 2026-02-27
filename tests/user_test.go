@@ -39,7 +39,8 @@ func TestSignup_DuplicateEmail(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	b, _ := readBody(resp)
-	require.Equal(t, http.StatusConflict, resp.StatusCode, "body: %s", string(b))
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode, "body: %s", string(b))
+	require.NotContains(t, string(b), "email already registered", "should not enumerate emails")
 }
 
 func TestSignup_BadRequest(t *testing.T) {

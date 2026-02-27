@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"strings"
 )
@@ -15,6 +16,7 @@ func ComputeCodeChallenge(codeVerifier string) string {
 }
 
 // VerifyCodeVerifier checks that code_verifier produces the stored code_challenge (S256 only).
+// Uses constant-time comparison to avoid timing leaks.
 func VerifyCodeVerifier(codeVerifier, codeChallenge, method string) bool {
 	method = strings.TrimSpace(method)
 	if method == "" {
@@ -25,5 +27,10 @@ func VerifyCodeVerifier(codeVerifier, codeChallenge, method string) bool {
 	}
 	hash := sha256.Sum256([]byte(codeVerifier))
 	computed := base64.RawURLEncoding.EncodeToString(hash[:])
-	return computed == codeChallenge
+	computedB := []byte(computed)
+	challengeB := []byte(codeChallenge)
+	if len(computedB) != len(challengeB) {
+		return false
+	}
+	return subtle.ConstantTimeCompare(computedB, challengeB) == 1
 }

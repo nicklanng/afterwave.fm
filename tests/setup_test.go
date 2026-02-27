@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/sopatech/afterwave.fm/internal/artists"
 	"github.com/sopatech/afterwave.fm/internal/auth"
+	"github.com/sopatech/afterwave.fm/internal/cognito"
 	"github.com/sopatech/afterwave.fm/internal/feed"
 	"github.com/sopatech/afterwave.fm/internal/follows"
 	apphttp "github.com/sopatech/afterwave.fm/internal/http"
@@ -32,6 +34,57 @@ var (
 	testOpenSearchEndpoint string
 	testFeedIndexName     string
 )
+
+// fakeCognitoClient is an in-memory implementation of cognito.Client for tests.
+type fakeCognitoClient struct {
+	mu     sync.Mutex
+	users  map[string]struct {
+		password string
+		sub      string
+	}
+}
+
+var _ cognito.Client = (*fakeCognitoClient)(nil)
+
+func newFakeCognitoClient() *fakeCognitoClient {
+	return &fakeCognitoClient{
+		users: make(map[string]struct {
+			password string
+			sub      string
+		}),
+	}
+}
+
+func (f *fakeCognitoClient) SignUp(ctx context.Context, email, password string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, exists := f.users[email]; exists {
+		return "", errors.New("user already exists")
+	}
+	sub := email + "-sub"
+	f.users[email] = struct {
+		password string
+		sub      string
+	}{password: password, sub: sub}
+	return sub, nil
+}
+
+func (f *fakeCognitoClient) InitiateAuth(ctx context.Context, email, password string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	u, ok := f.users[email]
+	if !ok || u.password != password {
+		return "", errors.New("invalid credentials")
+	}
+	return u.sub, nil
+}
+
+func (f *fakeCognitoClient) AdminDeleteUser(ctx context.Context, email string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.users, email)
+	return nil
+}
 
 func TestMain(m *testing.M) {
 	testTable = getEnv("DYNAMO_TABLE", "afterwave-test")
@@ -204,8 +257,9 @@ func newTestServer(t *testing.T) (*httptest.Server, string) {
 	authH := auth.NewHandler(authSvc, cookieCfg)
 
 	userStore := users.NewStore(testDB, testTable)
-	userSvc := users.NewService(userStore)
-	userH := users.NewHandler(userSvc, authSvc, cookieCfg)
+	userSvc := users.NewService(userStore, newFakeCognitoClient())
+	// For tests we don't exercise federated endpoints; pass empty Cognito Hosted UI config.
+	userH := users.NewHandler(userSvc, authSvc, cookieCfg, "", "", "", "", "", "", "", "")
 
 	artistStore := artists.NewStore(testDB, testTable)
 	artistSvc := artists.NewService(artistStore)

@@ -49,6 +49,23 @@ We deploy the API as **containers on ECS (Fargate)**. No EC2 to manage; we run t
 
 Terraform defines ECS, ALB, and target group. We don’t use EC2 (we’d manage instances and process managers), EKS (more than we need for one API), or Lambda (our API is a long-lived HTTP server).
 
+Terraform defines ECS, ALB, and target group. We don't use EC2 (we'd manage instances and process managers), EKS (more than we need for one API), or Lambda (our API is a long-lived HTTP server).
+
+### Rate limiting (ALB + WAF)
+
+**ALB does not support rate limiting.** To throttle or block abusive traffic (e.g. brute-force on `/auth/login`, signup abuse), put **AWS WAF** in front of the ALB and add **rate-based rules**:
+
+- **Associate WAF with the ALB** — In the AWS Console or Terraform: create a WAF Web ACL and associate it with the ALB that fronts the Fargate service. All traffic to the API then passes through WAF before reaching the ALB.
+- **Rate-based rule** — In WAF, add a rule of type "Rate-based rule". You define:
+  - **Limit** — e.g. 2000 requests per 5 minutes per IP (minimum is 100 per 5 minutes).
+  - **Evaluation window** — 60, 120, 300, or 600 seconds.
+  - **Scope** — Typically "IP" so each client is limited by source IP. You can also scope by URI path (e.g. stricter limit for `/v1/auth/login` and `/v1/auth/signup`) using a separate rule or WAF scope-down.
+- **Action** — Block or count when the limit is exceeded. Start with "Count" to tune the threshold, then switch to "Block".
+
+**Terraform:** Use `aws_wafv2_web_acl` and `aws_wafv2_web_acl_association` to attach the Web ACL to the ALB. Add an `aws_wafv2_rule_group` or inline `rate_based_statement` in a rule.
+
+**Note:** If you put **CloudFront** in front of the ALB, you can associate WAF with the CloudFront distribution instead; rate limiting then applies at the edge. Preserve the client IP (e.g. CloudFront forwards `X-Forwarded-For` or the WAF "forwarded IP" config) so rate-based rules count per real client.
+
 ---
 
 ## Subdomains in deployment (frontend only)

@@ -26,7 +26,7 @@ func Authenticate(publicKey *rsa.PublicKey) func(http.Handler) http.Handler {
 					return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 				}
 				return publicKey, nil
-			})
+			}, jwt.WithExpirationRequired())
 			if err != nil || !tok.Valid {
 				http.Error(w, "invalid token", http.StatusUnauthorized)
 				return

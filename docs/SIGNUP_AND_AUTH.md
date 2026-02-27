@@ -15,7 +15,15 @@ Design for accounts, artist pages, and who can do what.
 
 - **Sign-up and login** are the same flow for all users (no separate “artist sign-up”).
 - **Required for:** listening to full tracks, downloading, interacting (follow, comment, subscribe to artist, etc.), and creating or administering artist pages. One-off tips are the exception and do not require sign-in (see Tipping below).
-- Mechanics (email/password, OAuth, magic link, etc.) to be decided in implementation; this doc stays at product level.
+
+### How sign-in works
+
+- **Identity provider:** We use **AWS Cognito User Pools** for identity. Users can sign in in three ways:
+  - **Email and password** — Sign up or log in with email and password via the API (`POST /auth/signup`, `POST /auth/login`). Credentials are stored and verified in Cognito; our backend issues session and refresh tokens after a successful auth code exchange (PKCE).
+  - **Sign in with Google** — Users choose “Sign in with Google”; they are redirected to Cognito’s Hosted UI, then to Google, and back. Our backend callback receives the Cognito authorization code, finds or creates the user by Cognito identity, and issues our session and refresh tokens (same as email/password flow).
+  - **Sign in with Apple** — Same idea as Google: redirect to Cognito Hosted UI with Apple as the identity provider; callback creates or links the user and returns our tokens. Apple may return a private relay email; we treat it like any other email for account linking.
+- **One account, multiple sign-in methods:** The same person can sign up with email and later use Google or Apple (e.g. same email). Cognito and our user store link identities so they map to a single account.
+- **API contract:** Regardless of sign-in method, the client ends up with the same **session token** and **refresh token** from our API (Authorization Code + PKCE, then `POST /auth/token`). Session can be sent as `Authorization: Bearer <token>` or via httpOnly cookie. See [OpenAPI](../api/openapi.yaml) for endpoints.
 
 ### Tokens (short-lived session, long-lived refresh)
 

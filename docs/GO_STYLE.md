@@ -51,7 +51,7 @@ Conventions for Go code in this project. Follow [Effective Go](https://go.dev/do
 
 ## Errors and status codes
 
-- **Client errors** — 400 Bad Request (validation, malformed body), 401 Unauthorized (missing or invalid auth), 403 Forbidden (auth OK but not allowed), 404 Not Found, 409 Conflict (e.g. email already taken).
+- **Client errors** — 400 Bad Request (validation, malformed body, or generic signup failure), 401 Unauthorized (missing or invalid auth), 403 Forbidden (auth OK but not allowed), 404 Not Found, 409 Conflict (e.g. handle already in use).
 - **Server errors** — 500 Internal Server Error on unexpected failures. Log the error with stack or context; do not return internal details in the response.
 - **Errors in handlers** — Prefer a small set of sentinel or typed errors from the service; map them to HTTP status in the handler. Avoid `http.Error` with raw `err.Error()` for internal errors.
 

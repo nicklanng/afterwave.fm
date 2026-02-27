@@ -73,6 +73,7 @@ type authCodeRow struct {
 	UserID              string `dynamodbav:"user_id"`
 	ClientID            string `dynamodbav:"client_id"`
 	ExpiresAt           string `dynamodbav:"expires_at"`
+	ConsumedAt          string `dynamodbav:"consumed_at,omitempty"`
 }
 
 type Store struct {
@@ -297,7 +298,8 @@ type AuthCodeData struct {
 	ClientID            string
 }
 
-// GetAuthCodeAndDelete retrieves the auth code and deletes it (one-time use). Returns ErrAuthCodeInvalid if not found or expired.
+// GetAuthCodeAndDelete retrieves the auth code and marks it consumed (one-time use). Returns ErrAuthCodeInvalid if not found, expired, or already consumed.
+// Uses a conditional update so only one exchange can succeed under race.
 func (s *Store) GetAuthCodeAndDelete(ctx context.Context, code string) (AuthCodeData, error) {
 	tbl := s.tbl()
 	pk := codePrefix + code
@@ -314,8 +316,18 @@ func (s *Store) GetAuthCodeAndDelete(ctx context.Context, code string) (AuthCode
 		_ = tbl.Delete("pk", pk).Range("sk", codeSK).Run(ctx)
 		return AuthCodeData{}, ErrAuthCodeInvalid
 	}
-	err = tbl.Delete("pk", pk).Range("sk", codeSK).Run(ctx)
+	if row.ConsumedAt != "" {
+		return AuthCodeData{}, ErrAuthCodeInvalid
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	err = tbl.Update("pk", pk).Range("sk", codeSK).
+		Set("consumed_at", now).
+		If("attribute_not_exists(consumed_at)").
+		Run(ctx)
 	if err != nil {
+		if dynamo.IsCondCheckFailed(err) {
+			return AuthCodeData{}, ErrAuthCodeInvalid
+		}
 		return AuthCodeData{}, err
 	}
 	return AuthCodeData{

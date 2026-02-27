@@ -10,6 +10,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/sopatech/afterwave.fm/internal/artists"
 	"github.com/sopatech/afterwave.fm/internal/auth"
+	"github.com/sopatech/afterwave.fm/internal/cognito"
 	"github.com/sopatech/afterwave.fm/internal/config"
 	"github.com/sopatech/afterwave.fm/internal/feed"
 	"github.com/sopatech/afterwave.fm/internal/follows"
@@ -30,6 +31,13 @@ type Config struct {
 	JWTPrivateKeyPath   string `envconfig:"JWT_PRIVATE_KEY_PATH" required:"true"`
 	JWTPublicKeyPath    string `envconfig:"JWT_PUBLIC_KEY_PATH" required:"true"`
 	CookieSecure        bool   `envconfig:"COOKIE_SECURE" default:"true"`
+	CognitoUserPoolID   string `envconfig:"COGNITO_USER_POOL_ID" required:"true"`
+	CognitoClientID     string `envconfig:"COGNITO_CLIENT_ID" required:"true"`
+	CognitoClientSecret string `envconfig:"COGNITO_CLIENT_SECRET"`                // optional; required for confidential app client token exchange
+	CognitoHostedDomain string `envconfig:"COGNITO_HOSTED_UI_DOMAIN"`             // e.g. https://<domain>.auth.<region>.amazoncognito.com
+	CognitoCallbackURL  string `envconfig:"COGNITO_CALLBACK_URL"`                 // e.g. https://api.afterwave.fm/v1/auth/callback
+	FrontendRedirectURI string `envconfig:"FRONTEND_REDIRECT_URI"`                // e.g. https://app.afterwave.fm/auth/callback
+	OAuthStateSecret    string `envconfig:"OAUTH_STATE_SECRET"`                   // optional; if set, federated flow validates CSRF state cookie
 }
 
 func main() {
@@ -84,8 +92,13 @@ func main() {
 
 	// --- Users: store, service, handler ---
 	usersStore := users.NewStore(db, cfg.DynamoTable)
-	usersService := users.NewService(usersStore)
-	usersHandler := users.NewHandler(usersService, authService, cookieCfg)
+	cognitoClient, err := cognito.NewAWSClient(context.Background(), cfg.AWSRegion, cfg.CognitoUserPoolID, cfg.CognitoClientID)
+	if err != nil {
+		logger.Error("cognito init", "err", err)
+		os.Exit(1)
+	}
+	usersService := users.NewService(usersStore, cognitoClient)
+	usersHandler := users.NewHandler(usersService, authService, cookieCfg, cfg.CognitoHostedDomain, cfg.AWSRegion, cfg.CognitoUserPoolID, cfg.CognitoClientID, cfg.CognitoClientSecret, cfg.CognitoCallbackURL, cfg.FrontendRedirectURI, cfg.OAuthStateSecret)
 
 	// --- Artists: store, service, handler ---
 	artistsStore := artists.NewStore(db, cfg.DynamoTable)

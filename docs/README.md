@@ -12,6 +12,7 @@ Documentation for the Afterwave.fm application.
 - **[Discovery](./DISCOVERY.md)** — How users find artists: location (country → state → county → town), genres, search/filter, ranking
 - **[Platform subscription](./PLATFORM_SUBSCRIPTION.md)** — Optional fan subscription to support the platform
 - **[Music player app](./PLAYER_APP.md)** — Download-focused player for phone and desktop
+- **[Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md)** — Chunked streaming (HLS), CDN, local cache, caps, and cost control
 - **[Payments](./PAYMENTS.md)** — Artist sub fee, tips, recurring artist subs, payouts
 
 ### Cross-cutting
@@ -30,4 +31,5 @@ Documentation for the Afterwave.fm application.
 
 ### Backlog
 
+- **[Indie-focused advertising plan](./INDIE_ADVERTISING_PLAN.md)** — Privacy-first ads: formats, targeting, fill, ad decision API, reporting, billing, rollout
 - **[Future improvements](./FUTURE_IMPROVEMENTS.md)** — Technical and product improvements we may do later (e.g. SQS-based OpenSearch indexing)
