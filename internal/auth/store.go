@@ -36,44 +36,44 @@ const (
 )
 
 type sessionRow struct {
-	PK        string `dynamodbav:"pk"`
-	SK        string `dynamodbav:"sk"`
-	UserID    string `dynamodbav:"user_id"`
-	RefreshID string `dynamodbav:"refresh_id"`
-	ExpiresAt string `dynamodbav:"expires_at"`
+	PK        string `dynamo:"pk"`
+	SK        string `dynamo:"sk"`
+	UserID    string `dynamo:"user_id"`
+	RefreshID string `dynamo:"refresh_id"`
+	ExpiresAt string `dynamo:"expires_at"`
 }
 
 type refreshRow struct {
-	PK        string `dynamodbav:"pk"`
-	SK        string `dynamodbav:"sk"`
-	UserID    string `dynamodbav:"user_id"`
-	SessionID string `dynamodbav:"session_id"`
-	ExpiresAt string `dynamodbav:"expires_at"`
+	PK        string `dynamo:"pk"`
+	SK        string `dynamo:"sk"`
+	UserID    string `dynamo:"user_id"`
+	SessionID string `dynamo:"session_id"`
+	ExpiresAt string `dynamo:"expires_at"`
 }
 
 type clientRow struct {
-	PK                 string `dynamodbav:"pk"`
-	SK                 string `dynamodbav:"sk"`
-	ClientID           string `dynamodbav:"client_id"`
-	SessionTTLSeconds  int    `dynamodbav:"session_ttl_seconds"`
-	RefreshTTLSeconds  int    `dynamodbav:"refresh_ttl_seconds"`
+	PK                 string `dynamo:"pk"`
+	SK                 string `dynamo:"sk"`
+	ClientID           string `dynamo:"client_id"`
+	SessionTTLSeconds  int    `dynamo:"session_ttl_seconds"`
+	RefreshTTLSeconds  int    `dynamo:"refresh_ttl_seconds"`
 }
 
 // userSessionIndexRow is a minimal row for the user→session index (PK = AUTH#USER#<userID>, SK = SESSION#<id> or REFRESH#<id>).
 type userSessionIndexRow struct {
-	PK string `dynamodbav:"pk"`
-	SK string `dynamodbav:"sk"`
+	PK string `dynamo:"pk"`
+	SK string `dynamo:"sk"`
 }
 
 type authCodeRow struct {
-	PK                  string `dynamodbav:"pk"`
-	SK                  string `dynamodbav:"sk"`
-	CodeChallenge       string `dynamodbav:"code_challenge"`
-	CodeChallengeMethod string `dynamodbav:"code_challenge_method"`
-	UserID              string `dynamodbav:"user_id"`
-	ClientID            string `dynamodbav:"client_id"`
-	ExpiresAt           string `dynamodbav:"expires_at"`
-	ConsumedAt          string `dynamodbav:"consumed_at,omitempty"`
+	PK                  string `dynamo:"pk"`
+	SK                  string `dynamo:"sk"`
+	CodeChallenge       string `dynamo:"code_challenge"`
+	CodeChallengeMethod string `dynamo:"code_challenge_method"`
+	UserID              string `dynamo:"user_id"`
+	ClientID            string `dynamo:"client_id"`
+	ExpiresAt           string `dynamo:"expires_at"`
+	ConsumedAt          string `dynamo:"consumed_at,omitempty"`
 }
 
 type Store struct {
@@ -115,10 +115,10 @@ func (s *Store) CreateSession(ctx context.Context, userID string, sessionTTL, re
 	idxRef := userSessionIndexRow{PK: userPK, SK: userIndexRefresh + refreshID}
 
 	err = s.db.WriteTx().
-		Put(s.tbl().Put(dynamo.AWSEncoding(sessRow)).If("attribute_not_exists(pk)")).
-		Put(s.tbl().Put(dynamo.AWSEncoding(refRow)).If("attribute_not_exists(pk)")).
-		Put(s.tbl().Put(dynamo.AWSEncoding(idxSess))).
-		Put(s.tbl().Put(dynamo.AWSEncoding(idxRef))).
+		Put(s.tbl().Put(sessRow).If("attribute_not_exists(pk)")).
+		Put(s.tbl().Put(refRow).If("attribute_not_exists(pk)")).
+		Put(s.tbl().Put(idxSess)).
+		Put(s.tbl().Put(idxRef)).
 		Run(ctx)
 	if err != nil {
 		return "", "", time.Time{}, err
@@ -129,7 +129,7 @@ func (s *Store) CreateSession(ctx context.Context, userID string, sessionTTL, re
 // GetRefresh returns userID and sessionID for a refresh token, or empty if not found/expired.
 func (s *Store) GetRefresh(ctx context.Context, refreshID string) (userID, sessionID string, err error) {
 	var row refreshRow
-	err = s.tbl().Get("pk", refreshPrefix+refreshID).Range("sk", dynamo.Equal, refreshSK).One(ctx, dynamo.AWSEncoding(&row))
+	err = s.tbl().Get("pk", refreshPrefix+refreshID).Range("sk", dynamo.Equal, refreshSK).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return "", "", nil
@@ -146,7 +146,7 @@ func (s *Store) GetRefresh(ctx context.Context, refreshID string) (userID, sessi
 // GetSession returns userID and refreshID for a session, or empty if not found.
 func (s *Store) GetSession(ctx context.Context, sessionID string) (userID, refreshID string, err error) {
 	var row sessionRow
-	err = s.tbl().Get("pk", sessionPrefix+sessionID).Range("sk", dynamo.Equal, sessionSK).One(ctx, dynamo.AWSEncoding(&row))
+	err = s.tbl().Get("pk", sessionPrefix+sessionID).Range("sk", dynamo.Equal, sessionSK).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return "", "", nil
@@ -159,7 +159,7 @@ func (s *Store) GetSession(ctx context.Context, sessionID string) (userID, refre
 // RevokeRefresh deletes the refresh token and its linked session and their user index rows.
 func (s *Store) RevokeRefresh(ctx context.Context, refreshID string) error {
 	var row refreshRow
-	err := s.tbl().Get("pk", refreshPrefix+refreshID).Range("sk", dynamo.Equal, refreshSK).One(ctx, dynamo.AWSEncoding(&row))
+	err := s.tbl().Get("pk", refreshPrefix+refreshID).Range("sk", dynamo.Equal, refreshSK).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return nil
@@ -178,7 +178,7 @@ func (s *Store) RevokeRefresh(ctx context.Context, refreshID string) error {
 // RevokeSession deletes the session and its linked refresh token and their user index rows.
 func (s *Store) RevokeSession(ctx context.Context, sessionID string) error {
 	var row sessionRow
-	err := s.tbl().Get("pk", sessionPrefix+sessionID).Range("sk", dynamo.Equal, sessionSK).One(ctx, dynamo.AWSEncoding(&row))
+	err := s.tbl().Get("pk", sessionPrefix+sessionID).Range("sk", dynamo.Equal, sessionSK).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return nil
@@ -199,7 +199,7 @@ func (s *Store) RevokeAllSessionsForUser(ctx context.Context, userID string) err
 	pk := userIndexPKPrefix + userID
 	var idxRow userSessionIndexRow
 	iter := s.tbl().Get("pk", pk).Range("sk", dynamo.BeginsWith, userIndexSession).Iter()
-	for iter.Next(ctx, dynamo.AWSEncoding(&idxRow)) {
+	for iter.Next(ctx, &idxRow) {
 		sessionID := strings.TrimPrefix(idxRow.SK, userIndexSession)
 		if sessionID == "" {
 			continue
@@ -220,7 +220,7 @@ type ClientTTLs struct {
 // GetClientTTLs returns TTLs for the client (public clients, no secret). Returns zero TTLs and nil error if not found.
 func (s *Store) GetClientTTLs(ctx context.Context, clientID string) (ClientTTLs, error) {
 	var row clientRow
-	err := s.tbl().Get("pk", clientPK).Range("sk", dynamo.Equal, clientSKPrefix+clientID).One(ctx, dynamo.AWSEncoding(&row))
+	err := s.tbl().Get("pk", clientPK).Range("sk", dynamo.Equal, clientSKPrefix+clientID).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return ClientTTLs{}, nil
@@ -242,7 +242,7 @@ func (s *Store) CreateClient(ctx context.Context, clientID string, sessionTTLSec
 		SessionTTLSeconds:  sessionTTLSeconds,
 		RefreshTTLSeconds:  refreshTTLSeconds,
 	}
-	return s.tbl().Put(dynamo.AWSEncoding(row)).Run(ctx)
+	return s.tbl().Put(row).Run(ctx)
 }
 
 // ClientCredential is used to seed auth clients (e.g. on startup). Public clients only (no secret).
@@ -287,7 +287,7 @@ func (s *Store) CreateAuthCode(ctx context.Context, code, codeChallenge, codeCha
 		ClientID:            clientID,
 		ExpiresAt:           expiresAt.Format(time.RFC3339),
 	}
-	return s.tbl().Put(dynamo.AWSEncoding(row)).If("attribute_not_exists(pk)").Run(ctx)
+	return s.tbl().Put(row).If("attribute_not_exists(pk)").Run(ctx)
 }
 
 // AuthCodeData is the payload stored with an auth code (returned when consuming the code).
@@ -304,7 +304,7 @@ func (s *Store) GetAuthCodeAndDelete(ctx context.Context, code string) (AuthCode
 	tbl := s.tbl()
 	pk := codePrefix + code
 	var row authCodeRow
-	err := tbl.Get("pk", pk).Range("sk", dynamo.Equal, codeSK).One(ctx, dynamo.AWSEncoding(&row))
+	err := tbl.Get("pk", pk).Range("sk", dynamo.Equal, codeSK).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return AuthCodeData{}, ErrAuthCodeInvalid

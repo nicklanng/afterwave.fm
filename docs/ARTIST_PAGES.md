@@ -17,7 +17,8 @@ What an artist page is, what’s on it, and how it works. For who can view or ma
 - Gig calendar: upcoming gigs on page; collated calendar for followed artists
 - Support: tips (anonymous/attributed), recurring subscribe to artist; merch links only
 - Upload guidelines and explicit option on music, feed, photo flows
-- Invited members and configurable roles (owner, full admin, content roles)
+- ~~Invited members and configurable roles (owner, full admin, content roles)~~
+- **TODO:** In-app invitation flow — invite → invitee accepts (or declines) before becoming a member; see [Sign-up and auth → Artist page administration](./SIGNUP_AND_AUTH.md#artist-page-administration).
 
 ---
 
@@ -124,6 +125,7 @@ Implementation: the guidelines can be a short, always-visible blurb (e.g. “By 
 
 - **Owner** creates the page, pays the subscription, has full control.
 - **Invited members** get roles with specific permissions (e.g. full admin, photos only, music only, feed only). See [Sign-up and auth → Artist page administration](./SIGNUP_AND_AUTH.md#artist-page-administration).
+- **TODO:** In-app invitation flow — owner/admin invites by email or user; invitee must accept (or decline) before they are added as a member. To be implemented later.
 
 ---
 

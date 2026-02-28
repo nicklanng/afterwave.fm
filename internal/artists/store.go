@@ -21,22 +21,22 @@ const (
 )
 
 type artistRow struct {
-	PK            string `dynamodbav:"pk"`
-	SK            string `dynamodbav:"sk"`
-	Handle        string `dynamodbav:"handle"`
-	DisplayName   string `dynamodbav:"display_name"`
-	Bio           string `dynamodbav:"bio"`
-	OwnerUserID   string `dynamodbav:"owner_user_id"`
-	CreatedAt     string `dynamodbav:"created_at"`
-	FollowerCount int    `dynamodbav:"follower_count,omitempty"`
+	PK            string `dynamo:"pk"`
+	SK            string `dynamo:"sk"`
+	Handle        string `dynamo:"handle"`
+	DisplayName   string `dynamo:"display_name"`
+	Bio           string `dynamo:"bio"`
+	OwnerUserID   string `dynamo:"owner_user_id"`
+	CreatedAt     string `dynamo:"created_at"`
+	FollowerCount int    `dynamo:"follower_count,omitempty"`
 }
 
 type userIndexRow struct {
-	PK          string `dynamodbav:"pk"`
-	SK          string `dynamodbav:"sk"`
-	Handle      string `dynamodbav:"handle"`
-	DisplayName string `dynamodbav:"display_name"`
-	CreatedAt   string `dynamodbav:"created_at"`
+	PK          string `dynamo:"pk"`
+	SK          string `dynamo:"sk"`
+	Handle      string `dynamo:"handle"`
+	DisplayName string `dynamo:"display_name"`
+	CreatedAt   string `dynamo:"created_at"`
 }
 
 type Store struct {
@@ -67,7 +67,7 @@ func userIndexSK(handle string) string {
 // GetByHandle returns the artist for the given handle, or nil if not found.
 func (s *Store) GetByHandle(ctx context.Context, handle string) (*artistRow, error) {
 	var row artistRow
-	err := s.tbl().Get("pk", artistPK(handle)).Range("sk", dynamo.Equal, artistSK).One(ctx, dynamo.AWSEncoding(&row))
+	err := s.tbl().Get("pk", artistPK(handle)).Range("sk", dynamo.Equal, artistSK).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return nil, nil
@@ -83,7 +83,7 @@ func (s *Store) ListByOwner(ctx context.Context, userID string) ([]artistRow, er
 	var out []artistRow
 	iter := s.tbl().Get("pk", pk).Range("sk", dynamo.BeginsWith, userIndexSKPrefix).Iter()
 	var idx userIndexRow
-	for iter.Next(ctx, dynamo.AWSEncoding(&idx)) {
+	for iter.Next(ctx, &idx) {
 		out = append(out, artistRow{
 			Handle:      idx.Handle,
 			DisplayName: idx.DisplayName,
@@ -118,8 +118,8 @@ func (s *Store) Create(ctx context.Context, handle, displayName, bio, ownerUserI
 		CreatedAt:   createdAt,
 	}
 	return s.db.WriteTx().
-		Put(s.tbl().Put(dynamo.AWSEncoding(mainRow)).If("attribute_not_exists(pk)")).
-		Put(s.tbl().Put(dynamo.AWSEncoding(idxRow)).If("attribute_not_exists(pk)")).
+		Put(s.tbl().Put(mainRow).If("attribute_not_exists(pk)")).
+		Put(s.tbl().Put(idxRow).If("attribute_not_exists(pk)")).
 		Run(ctx)
 }
 

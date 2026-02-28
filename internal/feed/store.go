@@ -68,25 +68,25 @@ func postByTimeSK(createdAt, postID string) string {
 }
 
 type postRow struct {
-	PK               string `dynamodbav:"pk" dynamo:"pk"`
-	SK               string `dynamodbav:"sk" dynamo:"sk"`
-	PostID           string `dynamodbav:"post_id" dynamo:"post_id"` // slug (unique per artist)
-	ArtistHandle     string `dynamodbav:"artist_handle" dynamo:"artist_handle"`
-	Title            string `dynamodbav:"title" dynamo:"title"`
-	Body             string `dynamodbav:"body" dynamo:"body"`
-	ImageURL         string `dynamodbav:"image_url,omitempty" dynamo:"image_url,omitempty"`
-	YouTubeURL       string `dynamodbav:"youtube_url,omitempty" dynamo:"youtube_url,omitempty"`
-	Explicit         bool   `dynamodbav:"explicit" dynamo:"explicit"`
-	CreatedAt        string `dynamodbav:"created_at" dynamo:"created_at"`
-	UpdatedAt        string `dynamodbav:"updated_at,omitempty" dynamo:"updated_at,omitempty"`
-	CreatedByUserID  string `dynamodbav:"created_by_user_id" dynamo:"created_by_user_id"`
+	PK              string `dynamo:"pk"`
+	SK              string `dynamo:"sk"`
+	PostID          string `dynamo:"post_id"` // slug (unique per artist)
+	ArtistHandle    string `dynamo:"artist_handle"`
+	Title           string `dynamo:"title"`
+	Body            string `dynamo:"body"`
+	ImageURL        string `dynamo:"image_url,omitempty"`
+	YouTubeURL      string `dynamo:"youtube_url,omitempty"`
+	Explicit        bool   `dynamo:"explicit"`
+	CreatedAt       string `dynamo:"created_at"`
+	UpdatedAt       string `dynamo:"updated_at,omitempty"`
+	CreatedByUserID string `dynamo:"created_by_user_id"`
 }
 
 type postByTimeRow struct {
-	PK              string `dynamodbav:"pk"`
-	SK              string `dynamodbav:"sk"`
-	PostID          string `dynamodbav:"post_id"`
-	CreatedAt       string `dynamodbav:"created_at"`
+	PK        string `dynamo:"pk" dynamodbav:"pk"`
+	SK        string `dynamo:"sk" dynamodbav:"sk"`
+	PostID    string `dynamo:"post_id" dynamodbav:"post_id"`
+	CreatedAt string `dynamo:"created_at" dynamodbav:"created_at"`
 }
 
 type Store struct {
@@ -127,8 +127,8 @@ func (s *Store) Create(ctx context.Context, handle string, row postRow) error {
 		CreatedAt: row.CreatedAt,
 	}
 	return s.db.WriteTx().
-		Put(s.tbl().Put(dynamo.AWSEncoding(mainRow))).
-		Put(s.tbl().Put(dynamo.AWSEncoding(byTimeRow))).
+		Put(s.tbl().Put(mainRow)).
+		Put(s.tbl().Put(byTimeRow)).
 		Run(ctx)
 }
 
@@ -136,7 +136,7 @@ func (s *Store) Create(ctx context.Context, handle string, row postRow) error {
 func (s *Store) Get(ctx context.Context, handle, postID string) (*postRow, error) {
 	handle = normalizeHandle(handle)
 	var row postRow
-	err := s.tbl().Get("pk", artistPK(handle)).Range("sk", dynamo.Equal, postSK(postID)).One(ctx, dynamo.AWSEncoding(&row))
+	err := s.tbl().Get("pk", artistPK(handle)).Range("sk", dynamo.Equal, postSK(postID)).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return nil, nil

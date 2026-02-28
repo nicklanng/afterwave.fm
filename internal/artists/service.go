@@ -12,9 +12,11 @@ import (
 )
 
 var (
-	ErrHandleTaken   = errors.New("handle already in use")
-	ErrArtistNotFound = errors.New("artist not found")
-	ErrForbidden     = errors.New("not the owner of this artist page")
+	ErrHandleTaken     = errors.New("handle already in use")
+	ErrArtistNotFound  = errors.New("artist not found")
+	ErrForbidden       = errors.New("forbidden")
+	ErrCannotRemoveOwner = errors.New("cannot remove the owner")
+	ErrInvalidRoles    = errors.New("invalid roles")
 )
 
 // Handle must be lowercase, alphanumeric only, 4–64 chars (min 4 so we can reserve 3-letter subdomains: www, tui, api, etc.).
@@ -24,8 +26,27 @@ type Service interface {
 	Create(ctx context.Context, ownerUserID, handle, displayName, bio string) (*Artist, error)
 	GetByHandle(ctx context.Context, handle string) (*Artist, error)
 	ListByOwner(ctx context.Context, userID string) ([]Artist, error)
+	ListForUser(ctx context.Context, userID string) ([]ArtistWithRole, error)
 	Update(ctx context.Context, handle string, displayName, bio *string, actorUserID string) (*Artist, error)
 	Delete(ctx context.Context, handle, actorUserID string) error
+	HasPermission(ctx context.Context, handle, userID, permission string) (bool, error)
+	AddMember(ctx context.Context, handle, userID string, roles []string, actorUserID string) error
+	RemoveMember(ctx context.Context, handle, userID string, actorUserID string) error
+	UpdateMemberRoles(ctx context.Context, handle, userID string, roles []string, actorUserID string) error
+	ListMembers(ctx context.Context, handle, actorUserID string) ([]Member, error)
+}
+
+// ArtistWithRole is an artist plus the current user's role(s). Used for GET /artists/me.
+type ArtistWithRole struct {
+	Artist
+	Role  string   `json:"role"`  // "owner" or "member"
+	Roles []string `json:"roles,omitempty"` // when role is "member", the list of roles
+}
+
+// Member is a user with roles on an artist page (excludes the owner).
+type Member struct {
+	UserID string   `json:"user_id"`
+	Roles  []string `json:"roles"`
 }
 
 type Artist struct {
@@ -38,11 +59,12 @@ type Artist struct {
 }
 
 type service struct {
-	store *Store
+	store       *Store
+	memberStore *MemberStore
 }
 
-func NewService(store *Store) Service {
-	return &service{store: store}
+func NewService(store *Store, memberStore *MemberStore) Service {
+	return &service{store: store, memberStore: memberStore}
 }
 
 func normalizeHandle(s string) string {
@@ -76,6 +98,10 @@ func (s *service) Create(ctx context.Context, ownerUserID, handle, displayName, 
 		if dynamo.IsCondCheckFailed(err) {
 			return nil, ErrHandleTaken
 		}
+		return nil, err
+	}
+	// Store owner in member table so ownership can be transferred in the future (no API to change it yet).
+	if err := s.memberStore.Put(ctx, handle, ownerUserID, []string{RoleOwner}); err != nil {
 		return nil, err
 	}
 	return &Artist{
@@ -125,7 +151,8 @@ func (s *service) Update(ctx context.Context, handle string, displayName, bio *s
 	if err != nil || row == nil {
 		return nil, ErrArtistNotFound
 	}
-	if row.OwnerUserID != actorUserID {
+	ok, err := s.HasPermission(ctx, handle, actorUserID, PermArtistUpdate)
+	if err != nil || !ok {
 		return nil, ErrForbidden
 	}
 
@@ -163,8 +190,13 @@ func (s *service) Delete(ctx context.Context, handle, actorUserID string) error 
 	if err != nil || row == nil {
 		return ErrArtistNotFound
 	}
-	if row.OwnerUserID != actorUserID {
+	ok, err := s.HasPermission(ctx, handle, actorUserID, PermArtistDelete)
+	if err != nil || !ok {
 		return ErrForbidden
+	}
+	// Remove owner's member row so artist delete is consistent.
+	if err := s.memberStore.Delete(ctx, handle, row.OwnerUserID); err != nil {
+		return err
 	}
 	return s.store.Delete(ctx, handle)
 }
@@ -181,4 +213,171 @@ func rowToArtist(r *artistRow) *Artist {
 		CreatedAt:     r.CreatedAt,
 		FollowerCount: r.FollowerCount,
 	}
+}
+
+func (s *service) HasPermission(ctx context.Context, handle, userID, permission string) (bool, error) {
+	handle = normalizeHandle(handle)
+	if handle == "" || userID == "" {
+		return false, nil
+	}
+	row, err := s.store.GetByHandle(ctx, handle)
+	if err != nil || row == nil {
+		return false, err
+	}
+	if row.OwnerUserID == userID {
+		return true, nil
+	}
+	mem, err := s.memberStore.Get(ctx, handle, userID)
+	if err != nil || mem == nil {
+		return false, err
+	}
+	return RolesGrantPermission(mem.Roles, permission), nil
+}
+
+func (s *service) ListForUser(ctx context.Context, userID string) ([]ArtistWithRole, error) {
+	if userID == "" {
+		return nil, nil
+	}
+	var out []ArtistWithRole
+	owned, err := s.store.ListByOwner(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	ownedHandles := make(map[string]bool)
+	for i := range owned {
+		out = append(out, ArtistWithRole{Artist: *rowToArtist(&owned[i]), Role: "owner"})
+		ownedHandles[owned[i].Handle] = true
+	}
+	memberships, err := s.memberStore.ListByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range memberships {
+		if ownedHandles[m.Handle] {
+			continue
+		}
+		artist, err := s.GetByHandle(ctx, m.Handle)
+		if err != nil || artist == nil {
+			continue
+		}
+		out = append(out, ArtistWithRole{Artist: *artist, Role: "member", Roles: m.Roles})
+	}
+	return out, nil
+}
+
+func dedupeRoles(roles []string) []string {
+	seen := make(map[string]bool)
+	var out []string
+	for _, r := range roles {
+		if !seen[r] {
+			seen[r] = true
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func (s *service) AddMember(ctx context.Context, handle, userID string, roles []string, actorUserID string) error {
+	handle = normalizeHandle(handle)
+	if handle == "" {
+		return ErrArtistNotFound
+	}
+	ok, err := s.HasPermission(ctx, handle, actorUserID, PermArtistManageMembers)
+	if err != nil || !ok {
+		return ErrForbidden
+	}
+	row, err := s.store.GetByHandle(ctx, handle)
+	if err != nil || row == nil {
+		return ErrArtistNotFound
+	}
+	if row.OwnerUserID == userID {
+		return errors.New("user is already the owner")
+	}
+	roles = dedupeRoles(roles)
+	if len(roles) == 0 {
+		return ErrInvalidRoles
+	}
+	if !RolesAreAssignable(roles) {
+		return ErrInvalidRoles
+	}
+	return s.memberStore.Put(ctx, handle, userID, roles)
+}
+
+func (s *service) RemoveMember(ctx context.Context, handle, userID string, actorUserID string) error {
+	handle = normalizeHandle(handle)
+	if handle == "" {
+		return ErrArtistNotFound
+	}
+	ok, err := s.HasPermission(ctx, handle, actorUserID, PermArtistManageMembers)
+	if err != nil || !ok {
+		return ErrForbidden
+	}
+	row, err := s.store.GetByHandle(ctx, handle)
+	if err != nil || row == nil {
+		return ErrArtistNotFound
+	}
+	if row.OwnerUserID == userID {
+		return ErrCannotRemoveOwner
+	}
+	return s.memberStore.Delete(ctx, handle, userID)
+}
+
+func (s *service) UpdateMemberRoles(ctx context.Context, handle, userID string, roles []string, actorUserID string) error {
+	handle = normalizeHandle(handle)
+	if handle == "" {
+		return ErrArtistNotFound
+	}
+	ok, err := s.HasPermission(ctx, handle, actorUserID, PermArtistManageMembers)
+	if err != nil || !ok {
+		return ErrForbidden
+	}
+	row, err := s.store.GetByHandle(ctx, handle)
+	if err != nil || row == nil {
+		return ErrArtistNotFound
+	}
+	if row.OwnerUserID == userID {
+		return errors.New("cannot change owner roles")
+	}
+	roles = dedupeRoles(roles)
+	if len(roles) == 0 {
+		return s.memberStore.Delete(ctx, handle, userID)
+	}
+	if !RolesAreAssignable(roles) {
+		return ErrInvalidRoles
+	}
+	return s.memberStore.Put(ctx, handle, userID, roles)
+}
+
+func (s *service) ListMembers(ctx context.Context, handle, actorUserID string) ([]Member, error) {
+	handle = normalizeHandle(handle)
+	if handle == "" {
+		return nil, ErrArtistNotFound
+	}
+	ok, err := s.HasPermission(ctx, handle, actorUserID, PermArtistListMembers)
+	if err != nil || !ok {
+		return nil, ErrForbidden
+	}
+	row, err := s.store.GetByHandle(ctx, handle)
+	if err != nil || row == nil {
+		return nil, ErrArtistNotFound
+	}
+	rows, err := s.memberStore.ListByArtist(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
+	hasOwner := false
+	for i := range rows {
+		if rows[i].UserID == row.OwnerUserID {
+			hasOwner = true
+			break
+		}
+	}
+	out := make([]Member, 0, len(rows)+1)
+	if !hasOwner {
+		out = append(out, Member{UserID: row.OwnerUserID, Roles: []string{RoleOwner}})
+	}
+	for i := range rows {
+		out = append(out, Member{UserID: rows[i].UserID, Roles: rows[i].Roles})
+	}
+	return out, nil
 }

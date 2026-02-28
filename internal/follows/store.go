@@ -65,21 +65,21 @@ func (s *Store) Follow(ctx context.Context, userID string, handle string) (inser
 	}
 	followedAt := time.Now().UTC().Format(time.RFC3339)
 	userRow := struct {
-		PK         string `dynamodbav:"pk"`
-		SK         string `dynamodbav:"sk"`
-		Handle     string `dynamodbav:"handle"`
-		FollowedAt string `dynamodbav:"followed_at"`
+		PK         string `dynamo:"pk"`
+		SK         string `dynamo:"sk"`
+		Handle     string `dynamo:"handle"`
+		FollowedAt string `dynamo:"followed_at"`
 	}{userIndexPK(userID), handle, handle, followedAt}
 	artistFollowerRow := struct {
-		PK         string `dynamodbav:"pk"`
-		SK         string `dynamodbav:"sk"`
-		UserID     string `dynamodbav:"user_id"`
-		FollowedAt string `dynamodbav:"followed_at"`
+		PK         string `dynamo:"pk"`
+		SK         string `dynamo:"sk"`
+		UserID     string `dynamo:"user_id"`
+		FollowedAt string `dynamo:"followed_at"`
 	}{artistPK(handle), followedSK(followedAt, userID), userID, followedAt}
 	// Single transaction: both follow rows + increment artist follower_count
 	err = s.db.WriteTx().
-		Put(s.tbl().Put(dynamo.AWSEncoding(userRow))).
-		Put(s.tbl().Put(dynamo.AWSEncoding(artistFollowerRow))).
+		Put(s.tbl().Put(userRow)).
+		Put(s.tbl().Put(artistFollowerRow)).
 		Update(s.tbl().Update("pk", artistPK(handle)).Range("sk", artistMainSK).
 			SetExpr("follower_count = if_not_exists(follower_count, ?) + ?", 0, 1)).
 		Run(ctx)
@@ -90,14 +90,14 @@ func (s *Store) Follow(ctx context.Context, userID string, handle string) (inser
 }
 
 type userFollowRow struct {
-	PK         string `dynamodbav:"pk"`
-	SK         string `dynamodbav:"sk"`
-	FollowedAt string `dynamodbav:"followed_at"`
+	PK         string `dynamo:"pk"`
+	SK         string `dynamo:"sk"`
+	FollowedAt string `dynamo:"followed_at"`
 }
 
 func (s *Store) getUserFollowRow(ctx context.Context, userID string, handle string) (*userFollowRow, error) {
 	var row userFollowRow
-	err := s.tbl().Get("pk", userIndexPK(userID)).Range("sk", dynamo.Equal, handle).One(ctx, dynamo.AWSEncoding(&row))
+	err := s.tbl().Get("pk", userIndexPK(userID)).Range("sk", dynamo.Equal, handle).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return nil, nil
@@ -141,11 +141,11 @@ func (s *Store) ListFollowing(ctx context.Context, userID string) ([]string, err
 	var out []string
 	iter := s.tbl().Get("pk", pk).Iter()
 	var row struct {
-		PK     string `dynamodbav:"pk"`
-		SK     string `dynamodbav:"sk"`
-		Handle string `dynamodbav:"handle"`
+		PK     string `dynamo:"pk"`
+		SK     string `dynamo:"sk"`
+		Handle string `dynamo:"handle"`
 	}
-	for iter.Next(ctx, dynamo.AWSEncoding(&row)) {
+	for iter.Next(ctx, &row) {
 		out = append(out, row.SK)
 	}
 	return out, iter.Err()
@@ -164,11 +164,11 @@ func (s *Store) ListFollowers(ctx context.Context, handle string, limit int) ([]
 	var out []string
 	iter := s.tbl().Get("pk", pk).Range("sk", dynamo.BeginsWith, followedSKPrefix).Order(dynamo.Descending).Limit(limit).Iter()
 	var row struct {
-		PK     string `dynamodbav:"pk"`
-		SK     string `dynamodbav:"sk"`
-		UserID string `dynamodbav:"user_id"`
+		PK     string `dynamo:"pk"`
+		SK     string `dynamo:"sk"`
+		UserID string `dynamo:"user_id"`
 	}
-	for iter.Next(ctx, dynamo.AWSEncoding(&row)) {
+	for iter.Next(ctx, &row) {
 		out = append(out, row.UserID)
 	}
 	return out, iter.Err()

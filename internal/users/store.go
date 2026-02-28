@@ -33,32 +33,32 @@ const (
 var ErrSubLinkedToOtherAccount = errors.New("this identity is already linked to another account")
 
 type userRow struct {
-	PK         string `dynamodbav:"pk"`
-	SK         string `dynamodbav:"sk"`
-	ID         string `dynamodbav:"id"`
-	Email      string `dynamodbav:"email"`
-	CognitoSub string `dynamodbav:"cognito_sub,omitempty"`
-	CreatedAt  string `dynamodbav:"created_at"`
+	PK         string `dynamo:"pk"`
+	SK         string `dynamo:"sk"`
+	ID         string `dynamo:"id"`
+	Email      string `dynamo:"email"`
+	CognitoSub string `dynamo:"cognito_sub,omitempty"`
+	CreatedAt  string `dynamo:"created_at"`
 }
 
 // emailLookupRow is the second row for email→user_id lookup (no GSI).
 type emailLookupRow struct {
-	PK     string `dynamodbav:"pk"`
-	SK     string `dynamodbav:"sk"`
-	UserID string `dynamodbav:"user_id"`
+	PK     string `dynamo:"pk"`
+	SK     string `dynamo:"sk"`
+	UserID string `dynamo:"user_id"`
 }
 
 // cognitoSubLookupRow is the row for cognito_sub→user_id lookup (sharded by first 2 chars of sub).
 type cognitoSubLookupRow struct {
-	PK     string `dynamodbav:"pk"`
-	SK     string `dynamodbav:"sk"`
-	UserID string `dynamodbav:"user_id"`
+	PK     string `dynamo:"pk"`
+	SK     string `dynamo:"sk"`
+	UserID string `dynamo:"user_id"`
 }
 
 // linkedSubRow is stored under the user so we can delete all linked subs when the user is deleted.
 type linkedSubRow struct {
-	PK string `dynamodbav:"pk"`
-	SK string `dynamodbav:"sk"`
+	PK string `dynamo:"pk"`
+	SK string `dynamo:"sk"`
 }
 
 type Store struct {
@@ -106,7 +106,7 @@ func cognitoSubPK(sub string) string {
 // Email must be normalized (lowercase). Uses sharded email lookup row then main row (2 GetItems, no GSI).
 func (s *Store) GetByEmail(ctx context.Context, email string) (*userRow, error) {
 	var emailRow emailLookupRow
-	err := s.tbl().Get("pk", emailPK(email)).Range("sk", dynamo.Equal, email).One(ctx, dynamo.AWSEncoding(&emailRow))
+	err := s.tbl().Get("pk", emailPK(email)).Range("sk", dynamo.Equal, email).One(ctx, &emailRow)
 	if err != nil {
 		if !errors.Is(err, dynamo.ErrNotFound) {
 			return nil, err
@@ -125,7 +125,7 @@ func (s *Store) GetByCognitoSub(ctx context.Context, cognitoSub string) (*userRo
 		return nil, nil
 	}
 	var lookup cognitoSubLookupRow
-	err := s.tbl().Get("pk", cognitoSubPK(cognitoSub)).Range("sk", dynamo.Equal, cognitoSub).One(ctx, dynamo.AWSEncoding(&lookup))
+	err := s.tbl().Get("pk", cognitoSubPK(cognitoSub)).Range("sk", dynamo.Equal, cognitoSub).One(ctx, &lookup)
 	if err != nil {
 		if !errors.Is(err, dynamo.ErrNotFound) {
 			return nil, err
@@ -171,8 +171,8 @@ func (s *Store) AddLinkedCognitoSub(ctx context.Context, userID, cognitoSub stri
 		SK: linkedSubSKPrefix + cognitoSub,
 	}
 	return s.db.WriteTx().
-		Put(s.tbl().Put(dynamo.AWSEncoding(lookupRow))).
-		Put(s.tbl().Put(dynamo.AWSEncoding(linkRow))).
+		Put(s.tbl().Put(lookupRow)).
+		Put(s.tbl().Put(linkRow)).
 		Run(ctx)
 }
 
@@ -182,7 +182,7 @@ func (s *Store) listLinkedCognitoSubs(ctx context.Context, userID string) ([]str
 	var subs []string
 	var linkRow linkedSubRow
 	iter := s.tbl().Get("pk", pk).Range("sk", dynamo.BeginsWith, linkedSubSKPrefix).Iter()
-	for iter.Next(ctx, dynamo.AWSEncoding(&linkRow)) {
+	for iter.Next(ctx, &linkRow) {
 		sub := strings.TrimPrefix(linkRow.SK, linkedSubSKPrefix)
 		if sub != "" {
 			subs = append(subs, sub)
@@ -194,7 +194,7 @@ func (s *Store) listLinkedCognitoSubs(ctx context.Context, userID string) ([]str
 // GetByID returns the user row for the given user ID, or nil if not found.
 func (s *Store) GetByID(ctx context.Context, userID string) (*userRow, error) {
 	var row userRow
-	err := s.tbl().Get("pk", userPK(userID)).Range("sk", dynamo.Equal, userSK(userID)).One(ctx, dynamo.AWSEncoding(&row))
+	err := s.tbl().Get("pk", userPK(userID)).Range("sk", dynamo.Equal, userSK(userID)).One(ctx, &row)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return nil, nil
@@ -221,15 +221,15 @@ func (s *Store) PutUser(ctx context.Context, userID, email, cognitoSub, createdA
 		UserID: userID,
 	}
 	tx := s.db.WriteTx().
-		Put(s.tbl().Put(dynamo.AWSEncoding(mainRow)).If("attribute_not_exists(pk)")).
-		Put(s.tbl().Put(dynamo.AWSEncoding(emailRow)).If("attribute_not_exists(pk)"))
+		Put(s.tbl().Put(mainRow).If("attribute_not_exists(pk)")).
+		Put(s.tbl().Put(emailRow).If("attribute_not_exists(pk)"))
 	if cognitoSub != "" {
 		subRow := cognitoSubLookupRow{
 			PK:     cognitoSubPK(cognitoSub),
 			SK:     cognitoSub,
 			UserID: userID,
 		}
-		tx = tx.Put(s.tbl().Put(dynamo.AWSEncoding(subRow)).If("attribute_not_exists(pk)"))
+		tx = tx.Put(s.tbl().Put(subRow).If("attribute_not_exists(pk)"))
 	}
 	return tx.Run(ctx)
 }

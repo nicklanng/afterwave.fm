@@ -12,6 +12,12 @@ import (
 
 var ErrInvalidRefreshToken = errors.New("invalid or expired refresh token")
 
+// ActiveMonthRecorder records that a user was active this month (for MAU). Implemented by metrics.MAURecorder.
+// Called whenever we issue a new session — both login (code exchange) and refresh.
+type ActiveMonthRecorder interface {
+	RecordActiveMonth(ctx context.Context, userID string) error
+}
+
 // TokenPair is session token (JWT) + refresh token (opaque) returned from login/signup/refresh.
 type TokenPair struct {
 	SessionToken     string    `json:"session_token"`
@@ -22,12 +28,13 @@ type TokenPair struct {
 }
 
 type Service struct {
-	store      *Store
-	privateKey *rsa.PrivateKey
+	store         *Store
+	privateKey    *rsa.PrivateKey
+	activeRecorder ActiveMonthRecorder // optional; when set, records active month on every NewSession (login or refresh)
 }
 
-func NewService(store *Store, privateKey *rsa.PrivateKey) *Service {
-	return &Service{store: store, privateKey: privateKey}
+func NewService(store *Store, privateKey *rsa.PrivateKey, activeRecorder ActiveMonthRecorder) *Service {
+	return &Service{store: store, privateKey: privateKey, activeRecorder: activeRecorder}
 }
 
 // AuthCodeTTL is how long an authorization code is valid.
@@ -81,6 +88,9 @@ func (s *Service) NewSession(ctx context.Context, userID string, ttls *ClientTTL
 	sessionID, refreshID, expiresAt, err := s.store.CreateSession(ctx, userID, ttls.SessionTTL, ttls.RefreshTTL)
 	if err != nil {
 		return nil, err
+	}
+	if s.activeRecorder != nil {
+		_ = s.activeRecorder.RecordActiveMonth(ctx, userID)
 	}
 	sessionToken, err := s.signSession(userID, sessionID, ttls.SessionTTL)
 	if err != nil {

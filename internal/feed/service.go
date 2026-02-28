@@ -27,6 +27,12 @@ type FollowingLister interface {
 	ListFollowing(ctx context.Context, userID string) ([]string, error)
 }
 
+// FeedPermissionChecker checks if a user has a feed permission on an artist. When nil, feed falls back to owner-only.
+// Implemented by artists.Service (HasPermission with PermFeedCreate/PermFeedUpdate/PermFeedDelete).
+type FeedPermissionChecker interface {
+	HasPermission(ctx context.Context, handle, userID, permission string) (bool, error)
+}
+
 type Service interface {
 	CreatePost(ctx context.Context, handle string, title, body, imageURL, youtubeURL string, explicit bool, actorUserID string) (*Post, error)
 	ListPosts(ctx context.Context, handle string, limit int, cursor string) ([]Post, string, error)
@@ -50,11 +56,12 @@ type Post struct {
 }
 
 type service struct {
-	store      *Store
-	artist     ArtistResolver
-	indexer    FeedIndexer
-	following  FollowingLister
-	feedIndex  *search.FeedIndex
+	store        *Store
+	artist       ArtistResolver
+	permChecker  FeedPermissionChecker
+	indexer      FeedIndexer
+	following    FollowingLister
+	feedIndex    *search.FeedIndex
 }
 
 // FeedIndexer indexes post refs to OpenSearch (optional; when nil, indexing is skipped).
@@ -68,8 +75,23 @@ func NewService(store *Store, artist ArtistResolver) Service {
 }
 
 // NewServiceWithSearch returns a Service that indexes to OpenSearch on create/update/delete and supports MyFeed.
-func NewServiceWithSearch(store *Store, artist ArtistResolver, indexer FeedIndexer, following FollowingLister, feedIndex *search.FeedIndex) Service {
-	return &service{store: store, artist: artist, indexer: indexer, following: following, feedIndex: feedIndex}
+// If permChecker is non-nil, Create/Update/Delete post use it for feed permissions; otherwise owner-only.
+func NewServiceWithSearch(store *Store, artist ArtistResolver, permChecker FeedPermissionChecker, indexer FeedIndexer, following FollowingLister, feedIndex *search.FeedIndex) Service {
+	return &service{store: store, artist: artist, permChecker: permChecker, indexer: indexer, following: following, feedIndex: feedIndex}
+}
+
+func (s *service) ensureCanManageFeed(ctx context.Context, handle string, actorUserID string, permission string) error {
+	if s.permChecker != nil {
+		ok, err := s.permChecker.HasPermission(ctx, handle, actorUserID, permission)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrForbidden
+		}
+		return nil
+	}
+	return s.ensureOwner(ctx, handle, actorUserID)
 }
 
 func (s *service) ensureOwner(ctx context.Context, handle string, actorUserID string) error {
@@ -85,7 +107,12 @@ func (s *service) ensureOwner(ctx context.Context, handle string, actorUserID st
 
 func (s *service) CreatePost(ctx context.Context, handle string, title, body, imageURL, youtubeURL string, explicit bool, actorUserID string) (*Post, error) {
 	handle = normalizeHandle(handle)
-	if err := s.ensureOwner(ctx, handle, actorUserID); err != nil {
+	artist, err := s.artist.GetByHandle(ctx, handle)
+	if err != nil || artist == nil {
+		return nil, ErrArtistNotFound
+	}
+	_ = artist
+	if err := s.ensureCanManageFeed(ctx, handle, actorUserID, artists.PermFeedCreate); err != nil {
 		return nil, err
 	}
 	title = strings.TrimSpace(title)
@@ -173,7 +200,12 @@ func (s *service) GetPost(ctx context.Context, handle, postID string) (*Post, er
 
 func (s *service) UpdatePost(ctx context.Context, handle, postID string, body, imageURL, youtubeURL *string, explicit *bool, actorUserID string) (*Post, error) {
 	handle = normalizeHandle(handle)
-	if err := s.ensureOwner(ctx, handle, actorUserID); err != nil {
+	artist, err := s.artist.GetByHandle(ctx, handle)
+	if err != nil || artist == nil {
+		return nil, ErrArtistNotFound
+	}
+	_ = artist
+	if err := s.ensureCanManageFeed(ctx, handle, actorUserID, artists.PermFeedUpdate); err != nil {
 		return nil, err
 	}
 	row, err := s.store.Get(ctx, handle, postID)
@@ -225,7 +257,12 @@ func (s *service) UpdatePost(ctx context.Context, handle, postID string, body, i
 
 func (s *service) DeletePost(ctx context.Context, handle, postID string, actorUserID string) error {
 	handle = normalizeHandle(handle)
-	if err := s.ensureOwner(ctx, handle, actorUserID); err != nil {
+	artist, err := s.artist.GetByHandle(ctx, handle)
+	if err != nil || artist == nil {
+		return ErrArtistNotFound
+	}
+	_ = artist
+	if err := s.ensureCanManageFeed(ctx, handle, actorUserID, artists.PermFeedDelete); err != nil {
 		return err
 	}
 	row, err := s.store.Get(ctx, handle, postID)

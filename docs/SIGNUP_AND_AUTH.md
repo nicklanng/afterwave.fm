@@ -12,10 +12,10 @@ Design for accounts, artist pages, and who can do what.
 - ~~Short-lived session, long-lived refresh, rolling refresh, linked in DB~~
 - ~~Logout — POST /auth/logout; revoke session~~
 - ~~GET /users/me (protected); DELETE /account~~
-- Access control: viewing artist pages public (no sign-up wall)
+- Access control: ~~viewing artist pages public (no sign-up wall)~~
 - Full listening and downloads require signed-in user (enforced at stream/download issue)
 - Tipping: one-off anonymous or attributed; no sign-in required for anonymous
-- Artist page administration: owner, invited members, configurable roles, invitation flow
+- ~~Artist page administration: owner, invited members, configurable roles, invitation flow~~
 
 ---
 
@@ -83,6 +83,8 @@ Design for accounts, artist pages, and who can do what.
   - **Content: feed:** Can create and edit feed posts only.
   - **Custom combinations:** We can ship a set of predefined roles first and add “custom role” (pick permissions) later if needed.
 - **Invitation flow:** Invitee gets an email/link; they must already be a user or sign up. Accepting grants access according to their role. Owner can revoke or change roles at any time.
+
+**TODO (implementation):** In-app invitation flow — owner/admin sends invite (by email or user_id); invite is stored as pending; invitee must **accept** (or decline) before they become a member. Currently the API allows direct add (POST /artists/{handle}/members) with no accept step; add pending invitations, accept/decline endpoints, and optionally GET /users/me/invitations, then switch to invite-only or keep direct add as an option.
 
 ---
 

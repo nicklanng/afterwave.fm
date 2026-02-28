@@ -20,7 +20,7 @@ func chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler 
 	return h
 }
 
-func NewRouter(logger *slog.Logger, userH *users.Handler, authH *authmw.Handler, artistH *artists.Handler, followH *follows.Handler, feedH *feed.Handler, jwtPublicKey *rsa.PublicKey) http.Handler {
+func NewRouter(logger *slog.Logger, userH *users.Handler, authH *authmw.Handler, artistH *artists.Handler, followH *follows.Handler, feedH *feed.Handler, metricsH http.Handler, jwtPublicKey *rsa.PublicKey) http.Handler {
 	mux := http.NewServeMux()
 
 	wrap := func(h http.Handler) http.Handler {
@@ -58,12 +58,16 @@ func NewRouter(logger *slog.Logger, userH *users.Handler, authH *authmw.Handler,
 	v1.Handle("GET /users/me/following", wrap(auth(http.HandlerFunc(followH.ListFollowing))))
 	v1.Handle("GET /feed", wrap(auth(http.HandlerFunc(feedH.MyFeed))))
 
-	// Artists: protected create/list-mine; public get-by-handle; protected update/delete (owner only)
+	// Artists: protected create/list-mine; public get-by-handle; protected update/delete (owner or admin); members (owner or admin)
 	v1.Handle("POST /artists", wrap(auth(http.HandlerFunc(artistH.Create))))
 	v1.Handle("GET /artists/me", wrap(auth(http.HandlerFunc(artistH.ListMine))))
 	v1.Handle("GET /artists/{handle}", wrap(http.HandlerFunc(artistH.GetByHandle)))
 	v1.Handle("PATCH /artists/{handle}", wrap(auth(http.HandlerFunc(artistH.Update))))
 	v1.Handle("DELETE /artists/{handle}", wrap(auth(http.HandlerFunc(artistH.Delete))))
+	v1.Handle("GET /artists/{handle}/members", wrap(auth(http.HandlerFunc(artistH.ListMembers))))
+	v1.Handle("POST /artists/{handle}/members", wrap(auth(http.HandlerFunc(artistH.AddMember))))
+	v1.Handle("PATCH /artists/{handle}/members/{userId}", wrap(auth(http.HandlerFunc(artistH.UpdateMemberRoles))))
+	v1.Handle("DELETE /artists/{handle}/members/{userId}", wrap(auth(http.HandlerFunc(artistH.RemoveMember))))
 
 	// Feed (posts): public list/get; protected create/update/delete (owner only)
 	v1.Handle("POST /artists/{handle}/posts", wrap(auth(http.HandlerFunc(feedH.CreatePost))))
@@ -73,6 +77,11 @@ func NewRouter(logger *slog.Logger, userH *users.Handler, authH *authmw.Handler,
 	v1.Handle("DELETE /artists/{handle}/posts/{postId}", wrap(auth(http.HandlerFunc(feedH.DeletePost))))
 
 	mux.Handle("/v1/", http.StripPrefix("/v1", v1))
+
+	// Prometheus metrics on default path (GET /metrics)
+	if metricsH != nil {
+		mux.Handle("GET /metrics", metricsH)
+	}
 
 	return otelhttp.NewHandler(mux, "http.server")
 }

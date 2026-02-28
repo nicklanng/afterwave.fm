@@ -283,3 +283,91 @@ func TestArtists_Delete_Forbidden(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
+
+func TestArtists_Members_AddListUpdateRemove(t *testing.T) {
+	server, base := newTestServer(t)
+	defer server.Close()
+	client := server.Client()
+
+	ownerSession, ownerID, err := signupWithPKCEAndMe(client, base, uniqueEmail(t), "password123", "web")
+	require.NoError(t, err)
+	_, err = postJSON(client, base, "/artists", `{"handle":"memberband","display_name":"Member Band","bio":""}`, ownerSession)
+	require.NoError(t, err)
+
+	// Add member (second user)
+	memberSession, memberID, err := signupWithPKCEAndMe(client, base, uniqueEmail(t), "password123", "web")
+	require.NoError(t, err)
+	require.NotEqual(t, ownerID, memberID)
+
+	resp, err := postJSON(client, base, "/artists/memberband/members", `{"user_id":"`+memberID+`","roles":["feed","music"]}`, ownerSession)
+	require.NoError(t, err)
+	resp.Body.Close()
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	// List members (includes owner + invited member)
+	resp2, err := get(client, base, "/artists/memberband/members", ownerSession)
+	require.NoError(t, err)
+	defer resp2.Body.Close()
+	require.Equal(t, http.StatusOK, resp2.StatusCode)
+	var list map[string]any
+	body2, _ := readBody(resp2)
+	require.NoError(t, json.Unmarshal(body2, &list))
+	members, _ := list["members"].([]any)
+	require.Len(t, members, 2)
+	var foundOwner, foundMember bool
+	for _, m := range members {
+		mid := m.(map[string]any)["user_id"].(string)
+		roles, _ := m.(map[string]any)["roles"].([]any)
+		if mid == ownerID {
+			foundOwner = true
+			require.Len(t, roles, 1)
+			require.Equal(t, "owner", roles[0])
+		}
+		if mid == memberID {
+			foundMember = true
+			require.Len(t, roles, 2)
+		}
+	}
+	require.True(t, foundOwner)
+	require.True(t, foundMember)
+
+	// Non-admin member (feed role) can list members but cannot add/update/remove
+	respListAsMember, err := get(client, base, "/artists/memberband/members", memberSession)
+	require.NoError(t, err)
+	defer respListAsMember.Body.Close()
+	require.Equal(t, http.StatusOK, respListAsMember.StatusCode, "any page member can list members")
+	respAddAsMember, err := postJSON(client, base, "/artists/memberband/members", `{"user_id":"`+memberID+`","roles":["feed"]}`, memberSession)
+	require.NoError(t, err)
+	respAddAsMember.Body.Close()
+	require.Equal(t, http.StatusForbidden, respAddAsMember.StatusCode, "only owner/admin can add member")
+	respPatchAsMember, err := patchJSON(client, base, "/artists/memberband/members/"+memberID, `{"roles":["feed","music"]}`, memberSession)
+	require.NoError(t, err)
+	respPatchAsMember.Body.Close()
+	require.Equal(t, http.StatusForbidden, respPatchAsMember.StatusCode, "only owner/admin can update member")
+	respDelAsMember, err := deleteReq(client, base, "/artists/memberband/members/"+ownerID, memberSession)
+	require.NoError(t, err)
+	respDelAsMember.Body.Close()
+	require.Equal(t, http.StatusForbidden, respDelAsMember.StatusCode, "only owner/admin can remove member")
+
+	// Member with feed role can create post
+	_, err = postJSON(client, base, "/artists/memberband/posts", `{"title":"From member","body":"Post by member"}`, memberSession)
+	require.NoError(t, err)
+
+	// Update member roles (remove music)
+	resp3, err := patchJSON(client, base, "/artists/memberband/members/"+memberID, `{"roles":["feed"]}`, ownerSession)
+	require.NoError(t, err)
+	resp3.Body.Close()
+	require.Equal(t, http.StatusNoContent, resp3.StatusCode)
+
+	// Remove member
+	resp4, err := deleteReq(client, base, "/artists/memberband/members/"+memberID, ownerSession)
+	require.NoError(t, err)
+	resp4.Body.Close()
+	require.Equal(t, http.StatusNoContent, resp4.StatusCode)
+
+	// Member can no longer create post
+	resp5, err := postJSON(client, base, "/artists/memberband/posts", `{"title":"After remove","body":"Should fail"}`, memberSession)
+	require.NoError(t, err)
+	resp5.Body.Close()
+	require.Equal(t, http.StatusForbidden, resp5.StatusCode)
+}

@@ -398,6 +398,7 @@ paths:
     get:
       tags: [Artists]
       summary: List my artist pages
+      description: Returns artists the user owns or is a member of. Each item includes role ("owner" or "member") and, when member, the list of roles.
       operationId: listMyArtists
       security:
         - bearerAuth: []
@@ -413,7 +414,7 @@ paths:
                   artists:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Artist'
+                      $ref: '#/components/schemas/ArtistWithRole'
         '401':
           description: Unauthorized
 
@@ -437,7 +438,7 @@ paths:
     patch:
       tags: [Artists]
       summary: Update artist
-      description: Owner only.
+      description: Owner or member with admin role.
       operationId: updateArtist
       security:
         - bearerAuth: []
@@ -461,13 +462,13 @@ paths:
         '401':
           description: Unauthorized
         '403':
-          description: Forbidden (not owner)
+          description: Forbidden (not owner or admin)
         '404':
           description: Not found
     delete:
       tags: [Artists]
       summary: Delete artist
-      description: Owner only.
+      description: Owner only. Cannot be transferred.
       operationId: deleteArtist
       security:
         - bearerAuth: []
@@ -480,7 +481,138 @@ paths:
         '401':
           description: Unauthorized
         '403':
-          description: Forbidden (not owner)
+          description: Forbidden (not owner or admin)
+        '404':
+          description: Not found
+
+  /artists/{handle}/members:
+    get:
+      tags: [Artists]
+      summary: List members
+      description: Any page member (owner or invited with any role) can list. Returns all members including the owner (with role "owner"). Only owner or admin can add/update/remove members.
+      operationId: listMembers
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Member'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not a member of this artist page)
+        '404':
+          description: Not found
+    post:
+      tags: [Artists]
+      summary: Add member
+      description: Owner or admin only. Assign one or more predefined roles (admin, feed, music, photos, gigs). User must exist; invite by user_id.
+      operationId: addMember
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, roles]
+              properties:
+                user_id:
+                  type: string
+                  description: User ID to add as member
+                roles:
+                  type: array
+                  items:
+                    type: string
+                  description: Predefined roles (admin, feed, music, photos, gigs)
+      responses:
+        '204':
+          description: No content
+        '400':
+          description: Bad request (invalid roles or user already owner)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner or admin)
+        '404':
+          description: Not found
+
+  /artists/{handle}/members/{userId}:
+    patch:
+      tags: [Artists]
+      summary: Update member roles
+      description: Owner or admin only.
+      operationId: updateMemberRoles
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '204':
+          description: No content
+        '400':
+          description: Bad request (invalid roles or cannot change owner)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner or admin)
+        '404':
+          description: Not found
+    delete:
+      tags: [Artists]
+      summary: Remove member
+      description: Owner or admin only. Cannot remove the owner.
+      operationId: removeMember
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Handle'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No content
+        '400':
+          description: Bad request (e.g. cannot remove owner)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner or admin)
         '404':
           description: Not found
 
@@ -488,7 +620,7 @@ paths:
     post:
       tags: [Artists]
       summary: Create post
-      description: Owner only. Creates a post on the artist's content feed.
+      description: Owner or member with feed role.
       operationId: createPost
       security:
         - bearerAuth: []
@@ -513,7 +645,7 @@ paths:
         '401':
           description: Unauthorized
         '403':
-          description: Forbidden (not owner)
+          description: Forbidden (not owner or feed role)
         '404':
           description: Artist not found
         '409':
@@ -581,7 +713,7 @@ paths:
     patch:
       tags: [Artists]
       summary: Update post
-      description: Owner only.
+      description: Owner or member with feed role.
       operationId: updatePost
       security:
         - bearerAuth: []
@@ -606,13 +738,13 @@ paths:
         '401':
           description: Unauthorized
         '403':
-          description: Forbidden (not owner)
+          description: Forbidden (not owner or feed role)
         '404':
           description: Not found
     delete:
       tags: [Artists]
       summary: Delete post
-      description: Owner only.
+      description: Owner or member with feed role.
       operationId: deletePost
       security:
         - bearerAuth: []
@@ -626,7 +758,7 @@ paths:
         '401':
           description: Unauthorized
         '403':
-          description: Forbidden (not owner)
+          description: Forbidden (not owner or feed role)
         '404':
           description: Not found
 
@@ -886,6 +1018,34 @@ components:
         follower_count:
           type: integer
           description: Number of users following this artist.
+
+    ArtistWithRole:
+      type: object
+      description: Artist plus current user's role (for GET /artists/me).
+      allOf:
+        - $ref: '#/components/schemas/Artist'
+        - type: object
+          properties:
+            role:
+              type: string
+              enum: [owner, member]
+            roles:
+              type: array
+              items:
+                type: string
+              description: When role is member, the list of roles (admin, feed, music, photos, gigs).
+
+    Member:
+      type: object
+      description: A user with roles on an artist page. Includes the owner (with role "owner") and invited members (admin, feed, music, photos, gigs).
+      properties:
+        user_id:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+          description: Predefined roles (admin, feed, music, photos, gigs)
 
     PostCreate:
       type: object

@@ -22,8 +22,11 @@ import (
 	"github.com/sopatech/afterwave.fm/internal/follows"
 	apphttp "github.com/sopatech/afterwave.fm/internal/http"
 	"github.com/sopatech/afterwave.fm/internal/infra"
+	"github.com/sopatech/afterwave.fm/internal/metrics"
 	"github.com/sopatech/afterwave.fm/internal/search"
 	"github.com/sopatech/afterwave.fm/internal/users"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -252,7 +255,13 @@ func newTestServer(t *testing.T) (*httptest.Server, string) {
 	if err := authStore.EnsureAuthClients(ctx, testAuthClients); err != nil {
 		t.Fatalf("ensure auth clients: %v", err)
 	}
-	authSvc := auth.NewService(authStore, testJWTPrivKey)
+	mauStore := metrics.NewMAUStore(testDB, testTable)
+	metricsReg := prometheus.NewRegistry()
+	mauRecorder, err := metrics.NewMAURecorder(mauStore, metricsReg)
+	if err != nil {
+		t.Fatalf("new MAU recorder: %v", err)
+	}
+	authSvc := auth.NewService(authStore, testJWTPrivKey, mauRecorder)
 	cookieCfg := auth.CookieConfig{Secure: false} // HTTP in tests
 	authH := auth.NewHandler(authSvc, cookieCfg)
 
@@ -262,7 +271,8 @@ func newTestServer(t *testing.T) (*httptest.Server, string) {
 	userH := users.NewHandler(userSvc, authSvc, cookieCfg, "", "", "", "", "", "", "", "")
 
 	artistStore := artists.NewStore(testDB, testTable)
-	artistSvc := artists.NewService(artistStore)
+	artistMemberStore := artists.NewMemberStore(testDB, testTable)
+	artistSvc := artists.NewService(artistStore, artistMemberStore)
 	artistH := artists.NewHandler(artistSvc)
 
 	followsStore := follows.NewStore(testDB, testTable)
@@ -277,13 +287,13 @@ func newTestServer(t *testing.T) (*httptest.Server, string) {
 		if err := feedIndex.EnsureIndex(ctx); err != nil {
 			t.Logf("opensearch ensure index (my feed tests may be skipped): %v", err)
 		}
-		feedSvc = feed.NewServiceWithSearch(feedStore, artistSvc, feedIndex, followsSvc, feedIndex)
+		feedSvc = feed.NewServiceWithSearch(feedStore, artistSvc, artistSvc, feedIndex, followsSvc, feedIndex)
 	} else {
 		feedSvc = feed.NewService(feedStore, artistSvc)
 	}
 	feedH := feed.NewHandler(feedSvc)
 
-	handler := apphttp.NewRouter(logger, userH, authH, artistH, followsH, feedH, testJWTPubKey)
+	handler := apphttp.NewRouter(logger, userH, authH, artistH, followsH, feedH, metrics.HandlerForRegistry(metricsReg), testJWTPubKey)
 	server := httptest.NewServer(handler)
 	base := server.URL + "/v1"
 	return server, base

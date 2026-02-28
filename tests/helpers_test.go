@@ -85,6 +85,29 @@ func signupWithPKCE(client *http.Client, baseURL, email, password, clientID stri
 	return session, refresh, nil
 }
 
+// signupWithPKCEAndMe performs signup with PKCE, token exchange, and GET /users/me; returns session, user ID, and error.
+func signupWithPKCEAndMe(client *http.Client, baseURL, email, password, clientID string) (sessionToken, userID string, err error) {
+	session, _, err := signupWithPKCE(client, baseURL, email, password, clientID)
+	if err != nil {
+		return "", "", err
+	}
+	resp, err := get(client, baseURL, "/users/me", session)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("me: %d %s", resp.StatusCode, string(b))
+	}
+	var me map[string]any
+	if err := json.Unmarshal(b, &me); err != nil {
+		return "", "", err
+	}
+	id, _ := me["id"].(string)
+	return session, id, nil
+}
+
 // signupWithPKCEAndExpires is like signupWithPKCE but also returns expires_in from the token response.
 func signupWithPKCEAndExpires(client *http.Client, baseURL, email, password, clientID string) (sessionToken, refreshToken string, expiresIn int, err error) {
 	session, refresh, tokenBody, _, err := signupAndTokenResponse(client, baseURL, email, password, clientID)

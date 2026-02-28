@@ -16,8 +16,11 @@ import (
 	"github.com/sopatech/afterwave.fm/internal/follows"
 	apphttp "github.com/sopatech/afterwave.fm/internal/http"
 	"github.com/sopatech/afterwave.fm/internal/infra"
+	"github.com/sopatech/afterwave.fm/internal/metrics"
 	"github.com/sopatech/afterwave.fm/internal/search"
 	"github.com/sopatech/afterwave.fm/internal/users"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Config holds process configuration from environment (envconfig).
@@ -86,7 +89,14 @@ func main() {
 		logger.Error("load JWT public key", "err", err)
 		os.Exit(1)
 	}
-	authService := auth.NewService(authStore, jwtPrivateKey)
+	// MAU: conditional put to DynamoDB; increment Prometheus counter only when row is new this month
+	mauStore := metrics.NewMAUStore(db, cfg.DynamoTable)
+	mauRecorder, err := metrics.NewMAURecorder(mauStore, prometheus.DefaultRegisterer)
+	if err != nil {
+		logger.Error("register MAU counter", "err", err)
+		os.Exit(1)
+	}
+	authService := auth.NewService(authStore, jwtPrivateKey, mauRecorder)
 	cookieCfg := auth.CookieConfig{Secure: cfg.CookieSecure}
 	authHandler := auth.NewHandler(authService, cookieCfg)
 
@@ -102,7 +112,8 @@ func main() {
 
 	// --- Artists: store, service, handler ---
 	artistsStore := artists.NewStore(db, cfg.DynamoTable)
-	artistsService := artists.NewService(artistsStore)
+	artistsMemberStore := artists.NewMemberStore(db, cfg.DynamoTable)
+	artistsService := artists.NewService(artistsStore, artistsMemberStore)
 	artistsHandler := artists.NewHandler(artistsService)
 
 	// --- Follows: store, service, handler ---
@@ -118,11 +129,11 @@ func main() {
 		logger.Error("opensearch ensure feed index", "err", err)
 		os.Exit(1)
 	}
-	feedService := feed.NewServiceWithSearch(feedStore, artistsService, feedIndex, followsService, feedIndex)
+	feedService := feed.NewServiceWithSearch(feedStore, artistsService, artistsService, feedIndex, followsService, feedIndex)
 	feedHandler := feed.NewHandler(feedService)
 
 	// --- Router and HTTP server ---
-	r := apphttp.NewRouter(logger, usersHandler, authHandler, artistsHandler, followsHandler, feedHandler, jwtPublicKey)
+	r := apphttp.NewRouter(logger, usersHandler, authHandler, artistsHandler, followsHandler, feedHandler, metrics.Handler(), jwtPublicKey)
 
 	srv := &http.Server{
 		Addr:         cfg.Addr,
