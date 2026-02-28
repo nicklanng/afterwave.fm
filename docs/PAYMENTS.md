@@ -6,7 +6,7 @@ How money moves: artist subscription fee, tips, recurring artist subs, platform 
 
 - Artist subscription (platform fee): Stripe Billing; tiers $10 / $20 / $50; track limits 25 / 100 / unlimited
 - Recurring fan → artist subscriptions: Stripe Connect; 100% to artist; signed-in only
-- Platform (fan) subscription: Stripe; supporter benefits (badge, blog, gallery)
+- Platform (fan) subscription: Stripe; free users get ads; Listener $5 (no ads, 128 kbps Opus); Support $10 (no ads, 128 kbps Opus, $5 to chosen artist/month)
 - Tips: one-off; anonymous or attributed; Stripe Connect; no platform cut
 - Payouts to artists: Connect Standard/Express; weekly transfer; fee deducted from payout
 - Invoices/receipts; currency (USD); Stripe Tax for sales tax
@@ -69,7 +69,7 @@ Fans can subscribe to an artist (Patreon-style): they pay periodically (e.g. mon
 
 ## Platform (fan) subscription
 
-Optional subscription to support the platform. We receive this; Stripe Billing. See [Platform subscription](./PLATFORM_SUBSCRIPTION.md).
+Optional subscription to support the platform. **Free** users get ads (see [Indie-focused advertising plan](./INDIE_ADVERTISING_PLAN.md)). **Listener** ($5/month): no ads, 128 kbps Opus, no byte cap. **Support** ($10/month): same as Listener, plus the subscriber selects one artist to receive $5 of their subscription every month (we route $5 to that artist via Connect; we keep $5). We receive this revenue; Stripe Billing. See [Platform subscription](./PLATFORM_SUBSCRIPTION.md).
 
 ---
 

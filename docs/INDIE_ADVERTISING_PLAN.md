@@ -8,9 +8,9 @@ See [Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md), [Sign-up an
 
 - Light ad load (pre-roll, limited mid-roll; caps per user per month)
 - Brand-safe categories only; no tracking or personal profiling; no data selling
-- Region targeting (coarse IP); supporters ad-free
+- Region targeting (coarse IP); Listener/Support ad-free
 - Ad decision API and fill path; reporting and billing (aggregate, manual invoicing Phase 1)
-- Rollout after core product and supporter tier in place
+- Rollout after core product and Listener/Support tiers in place
 
 ---
 
@@ -18,7 +18,7 @@ See [Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md), [Sign-up an
 
 ### Why ads exist
 
-- **Financial stability** — Ads provide a second revenue stream alongside artist subscriptions and supporter tier, reducing reliance on raising artist fees or cutting features.
+- **Financial stability** — Ads provide a second revenue stream alongside artist subscriptions and Listener/Support tiers, reducing reliance on raising artist fees or cutting features.
 - **Keep fans free** — Free users can keep a usable experience (discovery + limited streaming) without paying; ads help fund that cost.
 - **Avoid raising artist fees** — We do **not** use ads to justify higher artist subscription prices; ads fund the platform so artist fees can stay at $10/month.
 
@@ -28,7 +28,7 @@ See [Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md), [Sign-up an
 - **Personal profiling** — No building or buying interest profiles, demographic inference, or “lookalike” audiences.
 - **Selling user data** — We do **not** sell, license, or share user data (identity, listening history, or behavior) with advertisers or third parties. Reporting is aggregate only.
 
-**Supporters ($3–$5/month) see no ads.** The product explicitly promises an ad-free experience for paying fans.
+**Listener tier ($5/month) and Support tier ($10/month) see no ads.** Free users get ads. The product explicitly promises an ad-free experience for paying fans.
 
 ---
 
@@ -39,7 +39,7 @@ See [Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md), [Sign-up an
 - **Light ad load** — Pre-roll and limited mid-roll; configurable caps (e.g. 3–10 impressions per user per month); never interrupt every track.
 - **Brand-safe** — Allowed categories only (venues, promoters, studios, indie labels, gear, merch, festivals); no gambling, payday, or political microtargeting.
 - **Region targeting** — Country/region/city via coarse IP geolocation only; no precise location or GPS.
-- **Supporters ad-free** — Enforced at API and client; no ad decision or ad media for supporter accounts.
+- **Listener/Support ad-free** — Enforced at API and client; no ad decision or ad media for Listener or Support tier accounts.
 - **Simple reporting & billing** — Daily aggregates per campaign + region; manual invoicing (Phase 1); clear CPM and caps.
 
 ### Non-Goals
@@ -116,14 +116,14 @@ See [Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md), [Sign-up an
 
 1. **Direct-sold local campaigns** — Venues, promoters, studios, local gear shops; targeted by region.
 2. **Direct-sold national indie campaigns** — Labels, festivals, tool/plugin brands; run across regions.
-3. **House ads** — Afterwave supporter pitch (“Go ad-free, support artists”), or “Featured artist” promos (no payment; we choose). Always available as fallback.
+3. **House ads** — Afterwave Listener/Support pitch (“Go ad-free, support artists”), or “Featured artist” promos (no payment; we choose). Always available as fallback.
 4. **Optional privacy-respecting network (Phase 2+)** — Only if we need fill and find a partner that meets our privacy bar (no tracking, no data sharing, brand-safe). Not in MVP.
 
 ### Low fill behavior
 
 - **Never show the same house ad more than N times per user per day** (e.g. 2) to avoid repetition.
 - If no paid ad and house ad cap reached: **show no ad** (skip the slot). Prefer “no ad” over a bad or repetitive experience.
-- Optionally rotate multiple house creatives (supporter pitch A/B, featured artist A, B, C).
+- Optionally rotate multiple house creatives (Listener/Support pitch A/B, featured artist A, B, C).
 
 ---
 
@@ -153,7 +153,7 @@ See [Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md), [Sign-up an
 
 - **Endpoint:** e.g. `POST /v1/ads/decision` or `GET /v1/ads/decision` (idempotent, no body or minimal body).
 - **Inputs (from client or derived server-side):**
-  - **Auth:** Session token (so we know supporter vs free; supporters get no ad).
+  - **Auth:** Session token (so we know Listener/Support vs free; paid tiers get no ad).
   - **Region:** From `X-Forwarded-For` / CloudFront geo or GeoIP on the server (we do not trust client-reported location for targeting).
   - **Context:** `genre_id` or `channel` (e.g. discovery, artist, station) and optionally `artist_id` for “no ads on my tracks” policy.
   - **Slot:** `pre_roll` | `mid_roll`.
@@ -196,7 +196,7 @@ flowchart LR
 ```
 
 - **Step 1:** Client calls ad decision with session, slot (pre_roll / mid_roll), and context (genre/channel). API derives region from IP.
-- **Step 2:** API checks supporter (no ad), frequency cap, then selects campaign; returns CloudFront URL(s) for ad audio.
+- **Step 2:** API checks Listener/Support (no ad), frequency cap, then selects campaign; returns CloudFront URL(s) for ad audio.
 - **Step 3:** Client fetches and plays ad audio from CloudFront → S3 (no media through API).
 - **Step 4:** Client may call back to API to record impression start and optionally completion/quartiles; API writes to DynamoDB for reporting.
 
@@ -333,10 +333,10 @@ When there is no ad (cap reached or no fill):
 
 ### Example: 250k MAU
 
-- Assume 10% supporter (25k), 90% free (225k).  
+- Assume 10% Listener/Support (25k), 90% free (225k).  
 - Free users: 225,000. Impressions at 4/user/month: 900,000.  
 - At 50% fill, 450,000 paid impressions. At $10 CPM: 450 × $10 = **$4,500/month** from ads.  
-- House ads: 450,000 slots (other 50%); no revenue, used for supporter pitch and UX.
+- House ads: 450,000 slots (other 50%); no revenue, used for Listener/Support pitch and UX.
 
 ### Example: 1M MAU
 
@@ -345,8 +345,8 @@ When there is no ad (cap reached or no fill):
 
 ### Supporter conversion and ad impressions
 
-- As more users become supporters, **ad impressions drop** (supporters see no ads). That’s intentional: we prefer supporter revenue over ad revenue.  
-- Revenue mix: artists + supporters + ads. Ads are a stabilizer; we don’t optimize for max ad load. At 20% supporter, we’d have fewer impressions but more subscription revenue.
+- As more users become Listener/Support subscribers, **ad impressions drop** (paid tiers see no ads). That’s intentional: we prefer subscription revenue over ad revenue.  
+- Revenue mix: artists + Listener/Support + ads. Ads are a stabilizer; we don’t optimize for max ad load. At 20% paid conversion, we’d have fewer impressions but more subscription revenue.
 
 ---
 
@@ -356,7 +356,7 @@ When there is no ad (cap reached or no fill):
 
 | # | Milestone | Scope |
 |---|-----------|--------|
-| 1 | **House ads only** | Ad decision API returns only house creative (supporter pitch). Client implements pre-roll (and optionally mid-roll) using CloudFront URLs; frequency cap in API. No paid campaigns. |
+| 1 | **House ads only** | Ad decision API returns only house creative (Listener/Support pitch). Client implements pre-roll (and optionally mid-roll) using CloudFront URLs; frequency cap in API. No paid campaigns. |
 | 2 | **Direct-sold campaigns (manual)** | Campaign and creative in DynamoDB; ad decision selects by region + context + dates; manual upload to S3, Stripe invoices. |
 | 3 | **Geo targeting** | Region from IP in ad decision; campaign targeting by country/region. |
 | 4 | **Reporting dashboard** | Internal view: daily aggregates per campaign + region (impressions, completions); export for billing. |
@@ -385,6 +385,6 @@ When there is no ad (cap reached or no fill):
 ## References
 
 - [Streaming + player caching](./STREAMING_AND_PLAYER_CACHING.md) — HLS, CloudFront, S3, no audio through API
-- [Sign-up and auth](./SIGNUP_AND_AUTH.md) — Session, supporter vs free
+- [Sign-up and auth](./SIGNUP_AND_AUTH.md) — Session, Listener/Support vs free
 - [Financial scenarios](./FINANCIAL_SCENARIOS.md) — Revenue and cost assumptions
 - [Architecture](./ARCHITECTURE.md) — Stack, Fargate, DynamoDB, CloudFront

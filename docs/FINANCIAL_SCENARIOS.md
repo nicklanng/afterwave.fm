@@ -17,11 +17,11 @@ These are directional estimates for planning — not accounting-grade forecasts.
 ## Platform Model
 
 - Artist subscription: **$10/month**
-- Supporter tier: **$4/month**
-- Free tier: **64kbps Opus**
-- Supporter tier: **128kbps Opus**
-- Free cap: **100MB/month**
-- Paid average usage: **500MB/month**
+- Listener tier: **$5/month** (all to platform)
+- Support tier: **$10/month** ($5 to platform, $5 to chosen artist)
+- Free users: **ads**; **64 kbps Opus**; free cap **100 MB/month**
+- Listener/Support: **128 kbps Opus**, no cap; **no ads**
+- Paid average usage: **500 MB/month**
 - CDN bandwidth cost: **$0.06/GB**
 - Cognito: ~$0.004635 per MAU
 - Stripe: 2.9% + $0.30 per subscription
@@ -53,7 +53,7 @@ Fixed non-bandwidth base ≈ **$4,500**
 
 ### 50,000 MAU
 
-### 1% Supporter Conversion (500 supporters)
+### 1% paid conversion (500 Listener/Support subscribers; platform receives $5 each)
 
 ---
 
@@ -63,8 +63,8 @@ Fixed non-bandwidth base ≈ **$4,500**
 | Source                | Amount     |
 | --------------------- | ---------- |
 | Artists (100 × $10)   | $1,000     |
-| Supporters (500 × $4) | $2,000     |
-| **Total Revenue**     | **$3,000** |
+| Listener/Support (500 × $5 platform) | $2,500     |
+| **Total Revenue**     | **$3,500** |
 
 
 ---
@@ -88,9 +88,9 @@ Cost:
 
 ## Stripe
 
-2.9% of $2,000 = $58  
+2.9% of $2,500 = $73  
 Fixed (500 × $0.30) = $150  
-Total ≈ **$208**
+Total ≈ **$223**
 
 ---
 
@@ -102,18 +102,18 @@ Infra:
 - Cognito: $232
 - Base infra: $4,500
 
-Stripe: $208  
+Stripe: $223  
 
-Total ≈ **$5,252**
+Total ≈ **$5,267**
 
 ---
 
 ## Profit
 
-Revenue: $3,000  
-Expenses: $5,252  
+Revenue: $3,500  
+Expenses: $5,267  
 
-**Net: -$2,252 (loss phase)**
+**Net: -$1,767 (loss phase)**
 
 ---
 
@@ -136,7 +136,7 @@ Ads stabilize early growth.
 
 ### 250,000 MAU
 
-### 1% Supporter Conversion (2,500 supporters)
+### 1% paid conversion (2,500 Listener/Support; platform receives $5 each)
 
 ---
 
@@ -146,8 +146,8 @@ Ads stabilize early growth.
 | Source     | Amount      |
 | ---------- | ----------- |
 | Artists    | $10,000     |
-| Supporters | $10,000     |
-| **Total**  | **$20,000** |
+| Listener/Support (2,500 × $5) | $12,500     |
+| **Total**  | **$22,500** |
 
 
 ---
@@ -170,9 +170,9 @@ Cost ≈ $1,560
 
 ## Stripe
 
-2.9% of $10k = $290  
+2.9% of $12,500 = $363  
 Fixed: 2,500 × $0.30 = $750  
-Total ≈ $1,040
+Total ≈ $1,113
 
 ---
 
@@ -184,19 +184,19 @@ Infra:
 - Cognito: $1,159
 - Base infra: $4,500
 
-Stripe: $1,040  
+Stripe: $1,113  
 
-Total ≈ **$8,259**
+Total ≈ **$8,332**
 
 ---
 
 ## Profit
 
-Revenue: $20,000  
-Expenses: $8,259  
+Revenue: $22,500  
+Expenses: $8,332  
 
-Pre-tax ≈ $11,741  
-After 25% tax ≈ **$8,806**
+Pre-tax ≈ $14,168  
+After 25% tax ≈ **$10,626**
 
 ---
 
@@ -205,8 +205,8 @@ After 25% tax ≈ **$8,806**
 247,500 × 5 = 1,237,500 impressions  
 Revenue ≈ $17,325  
 
-Total revenue ≈ $37,325  
-Net profit ≈ **$21k+**
+Total revenue ≈ $39,825  
+Net profit ≈ **$23k+**
 
 ---
 
@@ -216,7 +216,7 @@ Net profit ≈ **$21k+**
 
 ### 1,000,000 MAU
 
-### 1% Supporter Conversion (10,000 supporters)
+### 1% paid conversion (10,000 Listener/Support; platform receives $5 each)
 
 ---
 
@@ -226,8 +226,8 @@ Net profit ≈ **$21k+**
 | Source     | Amount      |
 | ---------- | ----------- |
 | Artists    | $10,000     |
-| Supporters | $40,000     |
-| **Total**  | **$50,000** |
+| Listener/Support (10,000 × $5) | $50,000     |
+| **Total**  | **$60,000** |
 
 
 ---
@@ -250,9 +250,9 @@ Cost ≈ $6,240
 
 ## Stripe
 
-2.9% of $40k = $1,160  
+2.9% of $50k = $1,450  
 Fixed: 10,000 × $0.30 = $3,000  
-Total ≈ $4,160
+Total ≈ $4,450
 
 ---
 
@@ -264,16 +264,16 @@ Infra:
 - Cognito: $4,635
 - Base infra: $4,500
 
-Stripe: $4,160  
+Stripe: $4,450  
 
-Total ≈ **$19,535**
+Total ≈ **$19,825**
 
 ---
 
 ## Profit
 
-Pre-tax ≈ $30,465  
-After tax ≈ **$22,849**
+Pre-tax ≈ $40,175  
+After tax ≈ **$30,131**
 
 ---
 
@@ -289,26 +289,26 @@ Net profit after tax ≈ **~$75k+**
 
 ---
 
-# Scenario 4 – 1M MAU, 5% Supporter Conversion
+# Scenario 4 – 1M MAU, 5% paid conversion
 
-### 50,000 supporters
+### 50,000 Listener/Support subscribers (platform receives $5 each)
 
 Revenue:
 
-- Supporters: $200,000
+- Listener/Support (50,000 × $5): $250,000
 - Artists: $10,000
-- Total: $210,000
+- Total: $260,000
 
 Bandwidth increases slightly (heavier paid usage):
 ≈ $8,000
 
 Stripe:
-≈ $20,800
+≈ $25,800
 
-Total expenses ≈ $40–45k
+Total expenses ≈ $45–50k
 
-Pre-tax profit ≈ $165k  
-After tax ≈ **~$123k/month**
+Pre-tax profit ≈ $210k  
+After tax ≈ **~$157k/month**
 
 Ads become irrelevant at this point.
 

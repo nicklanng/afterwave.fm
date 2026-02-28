@@ -17,7 +17,7 @@ Afterwave.fm is a competitor to **Spotify** and **Bandcamp**, and operates in th
 
 **For artists:** A ~$10/month subscription buys a site builder, mailing list, and content feed (Patreon-style). They keep full ownership of their audience, branding, and income. The platform takes **no cut** of artist income — only the software subscription fee (plus standard payment-processor fees, e.g. Stripe).
 
-**For listeners:** Sign-up is required only to interact with artists or download music; listening and downloading remain free. Fans can optionally subscribe to support the platform.
+**For listeners:** Sign-up is required only to interact with artists or download music; listening and downloading remain free. Free users may see light ads. Fans can optionally subscribe: **Listener** ($5/month, no ads, 128 kbps Opus) or **Support** ($10/month, no ads, 128 kbps Opus, plus select one artist to receive $5 of their subscription every month).
 
 **Listening experience:** A dedicated music player app (phone and desktop) focuses on **downloading** music rather than streaming, avoiding ongoing streaming infrastructure costs.
 
@@ -44,14 +44,14 @@ Afterwave.fm is a competitor to **Spotify** and **Bandcamp**, and operates in th
 - Platform sustainability comes from software subscription, not artistic cuts.
 - Clear, flat pricing. No hidden fees.
 - No surprise bandwidth billing for small artists.
-- No monetisation via advertising.
+- No monetisation via selling user data or targeted advertising; light ads for free users only to fund the platform (Listener/Support tiers are ad-free).
 - No growth incentives that distort artistic fairness.
 - No venture capital pressure that compromises product direction.
 
 **Primary revenue model:**
 
 - Flat subscription for bands.
-- Optional supporter subscription for fans.
+- Optional Listener ($5) and Support ($10) subscription for fans; free users may see light ads.
 - Premium tooling tiers — never revenue-sharing exploitation.
 
 ### Team Size Cap
@@ -71,7 +71,7 @@ Afterwave.fm is a competitor to **Spotify** and **Bandcamp**, and operates in th
 - No AI-generated music hosting.
 - No label promotion deals.
 - No paid boost placements.
-- No ad-based revenue.
+- No ad-based revenue from selling user data; light ads for free users only (paid tiers ad-free).
 - No dark UX patterns pushing upgrades.
 - No tokenised hype economy.
 - No venture capital mandates that override culture.

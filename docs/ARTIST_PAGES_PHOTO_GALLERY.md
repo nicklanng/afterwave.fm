@@ -10,7 +10,7 @@ See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core prod
 - Artist uploads: owner + "photos" role; bulk upload; ordering within collection
 - Guidelines (and optional mature/explicit) on upload form
 - User-submitted photos: link to event; artist approval before public
-- Display: grid or masonry; lightbox/full-size; tie-in with supporter personal gallery TBD
+- Display: grid or masonry; lightbox/full-size; tie-in with Listener/Support personal gallery TBD
 
 ---
 
@@ -41,7 +41,7 @@ The **photo upload** flow includes a **guidelines section**: short summary of ou
 - **Artists must approve** user-submitted photos before they appear in the gallery. Until approved, submissions are in a pending/queue state visible only to the artist (and admins with the right role).
 - Approved user photos can be placed in the same event-linked collection or a dedicated “Fan photos” (or similar) collection — TBD.
 
-**Tie-in with supporter galleries:** Users who have a [platform subscription](./PLATFORM_SUBSCRIPTION.md) can also have a **personal gallery** on their profile, with photos linked to artists. The same photo might be submitted to an artist (for the artist's gallery, pending approval) and shown in the user's own gallery with a link to the artist. Good for photographers and reviewers.
+**Tie-in with paid subscriber galleries:** Users who have a [Listener or Support subscription](./PLATFORM_SUBSCRIPTION.md) can also have a **personal gallery** on their profile, with photos linked to artists. The same photo might be submitted to an artist (for the artist's gallery, pending approval) and shown in the user's own gallery with a link to the artist. Good for photographers and reviewers.
 
 ---
 

@@ -6,7 +6,7 @@ See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core prod
 
 ## Implementation checklist
 
-- Support section on artist page: tip button (one-off, anonymous or attributed), subscribe button (recurring, signed-in)
+- Support section on artist page: tip button (one-off, anonymous or attributed), subscribe button (recurring, signed-in). Artists may also receive $5/month from **Support-tier** platform subscribers who select them (see [Platform subscription](./PLATFORM_SUBSCRIPTION.md)).
 - Merch: link out only; no checkout
 - Artist dashboard: tips list (anonymous/attributed), recurring subscribers list, payouts summary/link
 - User account: payment history (tips, artist subs, platform sub); current artist subscriptions list + cancel
@@ -27,7 +27,7 @@ See [Artist pages](./ARTIST_PAGES.md) for context. This is part of the core prod
 ## Artist dashboard (what artists see)
 
 - **Tips** — List of tips: amount, date, and either “Anonymous” or the supporter’s name (if they were signed in). Export or filter TBD later.
-- **Recurring subscribers** — List of fans who subscribe to this artist: who, plan (e.g. monthly), amount, start date. So the artist knows who’s supporting and can manage (e.g. thank them, or see churn). Export TBD later.
+- **Recurring subscribers** — List of fans who subscribe to this artist: who, plan (e.g. monthly), amount, start date. Plus list of **Support-tier** platform subscribers who have selected this artist to receive their $5/month. So the artist knows who’s supporting and can manage (e.g. thank them, or see churn). Export TBD later.
 - **Payouts** — Link or summary to “your payouts” (Stripe Connect dashboard or our own summary). We don’t hold funds; payouts are weekly, same day for all (see Payments). Dashboard can show “next payout” and history.
 
 ---

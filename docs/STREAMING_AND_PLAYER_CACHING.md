@@ -7,7 +7,7 @@ See [Architecture](./ARCHITECTURE.md), [Player app](./PLAYER_APP.md), and [Sign-
 ## Implementation checklist
 
 - Packaging pipeline: ingest → transcode Opus 64/128 → HLS fMP4 4s segments → S3; store segment sizes
-- Signed URL / cookie issuance: GET /v1/tracks/:id/stream (supporter) and segment-range (free tier)
+- Signed URL / cookie issuance: GET /v1/tracks/:id/stream (Listener/Support) and segment-range (free tier)
 - Client HLS playback: load master playlist, select variant, request segments from CloudFront
 - Client caching: disk cache, LRU eviction, max size, commit at 70% play or Save
 - Free-tier monthly byte cap: DynamoDB usage, enforce at issue time, idempotent segment-range
@@ -32,10 +32,10 @@ We are building a **Spotify-like playback experience** with:
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | **Codec** | Opus | Good quality at low bitrate; wide client support; we encode once per tier. |
-| **Bitrate** | 64 kbps (free), 128 kbps (supporter) | Cost vs quality; tiered from day one. |
+| **Bitrate** | 64 kbps (free), 128 kbps (Listener/Support) | Cost vs quality; tiered from day one. |
 | **Identity** | Cognito | Per [Sign-up and auth](./SIGNUP_AND_AUTH.md); we issue our own session/refresh after Cognito. |
 | **Delivery** | CloudFront → S3 | No audio through Go API; signed URLs or cookies for entitlement. |
-| **Monetization** | Artists pay; supporter tier $3–5; free tier monthly data cap | Predictable cost and upgrade path. |
+| **Monetization** | Artists pay; Listener $5, Support $10; free users get ads and monthly data cap | Predictable cost and upgrade path. |
 
 ---
 
@@ -88,9 +88,9 @@ flowchart LR
   CF --> S3
 ```
 
-- **Client → API:** Authentication (Cognito → our session token), metadata (track/album info), **entitlement check** (supporter vs free, byte cap), and **URL signing** (CloudFront signed URL or signed cookie). No audio bytes.
+- **Client → API:** Authentication (Cognito → our session token), metadata (track/album info), **entitlement check** (Listener/Support vs free, byte cap), and **URL signing** (CloudFront signed URL or signed cookie). No audio bytes.
 - **Client → CloudFront → S3:** All **audio** (HLS playlists and segments, or range requests). Client uses the signed URL/cookie from the API to request segments directly from the CDN.
-- **DynamoDB:** Users, sessions, refresh tokens, track/album metadata, supporter status, and **monthly byte usage** (for free-tier cap).
+- **DynamoDB:** Users, sessions, refresh tokens, track/album metadata, Listener/Support subscription status, and **monthly byte usage** (for free-tier cap).
 
 ---
 
@@ -116,7 +116,7 @@ We use **HLS with fMP4 (fragmented MP4)** as the default packaging format.
 
 ### Variant playlists (64 kbps vs 128 kbps)
 
-- **Master playlist** — Lists two variants: `free` (64 kbps Opus) and `supporter` (128 kbps Opus). Client chooses variant based on entitlement (API tells client which tier).
+- **Master playlist** — Lists two variants: `free` (64 kbps Opus) and `paid` (128 kbps Opus for Listener/Support). Client chooses variant based on entitlement (API tells client which tier).
 - **Per-variant playlist** — Each variant is a playlist of 4 s fMP4 segments (e.g. `track_64/seg_0.m4s`, `track_64/seg_1.m4s`, …). Segment URLs are either signed at request time (per-segment signed URL) or covered by a short-lived signed cookie for the path prefix.
 
 Example layout in S3:
@@ -140,8 +140,8 @@ Example layout in S3:
 
 1. **Cognito auth** → User signs in; our API (via Cognito or our session) issues **session token** and **refresh token** (see [Sign-up and auth](./SIGNUP_AND_AUTH.md)).
 2. **Client requests stream access** — e.g. `GET /v1/tracks/:id/stream` (or `stream-url`) with `Authorization: Bearer <session_token>`.
-3. **API:** Validates session, loads user from DynamoDB, checks **entitlement** (supporter vs free) and **free-tier byte cap** (see below). If allowed, generates **short-lived signed access** and returns it to the client.
-4. **Signed access** — **Supporter tier:** Prefer **CloudFront signed cookies** for the path prefix (e.g. `/tracks/{track_id}/hls/*`) so the client can request all segments without further API calls. TTL: **15–30 minutes**. **Free tier:** Use **segment-range issuance** (see Counting bytes): client calls e.g. `GET /v1/tracks/:id/segments?from=0&to=4`; API adds those segments’ bytes to usage, then returns signed URLs or a short-lived cookie scoped to that range. TTL per batch: **15–30 minutes**. This gives accurate byte accounting for the 100 MB cap.
+3. **API:** Validates session, loads user from DynamoDB, checks **entitlement** (Listener/Support vs free) and **free-tier byte cap** (see below). If allowed, generates **short-lived signed access** and returns it to the client.
+4. **Signed access** — **Listener/Support tier:** Prefer **CloudFront signed cookies** for the path prefix (e.g. `/tracks/{track_id}/hls/*`) so the client can request all segments without further API calls. TTL: **15–30 minutes**. **Free tier:** Use **segment-range issuance** (see Counting bytes): client calls e.g. `GET /v1/tracks/:id/segments?from=0&to=4`; API adds those segments’ bytes to usage, then returns signed URLs or a short-lived cookie scoped to that range. TTL per batch: **15–30 minutes**. This gives accurate byte accounting for the 100 MB cap.
 
 ### Free-tier monthly byte cap
 
@@ -150,13 +150,13 @@ Example layout in S3:
 - **Counting bytes (accurate tracking):** With a 100 MB cap we need to count **actual bytes authorized**, not full-track estimates—otherwise we either overcount (user skips early) or undercount (user gets more than 100 MB). We do **not** use Lambda@Edge to count at the CDN. Instead:
   - **Segment-range issuance for free tier:** Client requests access in **segment ranges** (e.g. “segments 0–4” for ~20 s of playback). API looks up **stored segment sizes** for that track/variant (from packaging metadata or playlist), computes `bytes_for_segments(0..4)`, checks `usage.bytes_used + bytes_for_segments(0..4) <= cap`, then **adds that amount** to the user’s monthly usage and issues signed URLs (or a short-lived cookie scoped to that segment range). We only count bytes we actually authorize; if the user skips, they never request later segments so we never add them. Segment sizes are stored per track/variant (e.g. in DynamoDB or in the playlist manifest) so we don’t hit S3 at issue time.
   - **Batch size:** e.g. 5–10 segments per API call (~20–40 s) to balance accuracy vs request volume. Client requests the next batch when it needs more buffer; cap is rechecked on each batch.
-  - **Supporter tier:** Can keep a single signed cookie per track (no per-segment accounting) since they have no cap.
+  - **Listener/Support tier:** Can keep a single signed cookie per track (no per-segment accounting) since they have no cap.
   - **Resetting:** Calendar month; reset at start of each month (e.g. cron or on first request in new month).
   - **Optional reconciliation:** CloudFront access logs record bytes sent per request. If we embed a **user_id or usage_token** in the signed URL path/query (so logs can be attributed), a periodic job can sum bytes by user and reconcile against our issue-time usage (audit or drift correction). For cap enforcement we rely on issue-time accounting; logs are optional for accuracy and abuse detection.
 
-### Supporter tier entitlement
+### Listener / Support tier entitlement
 
-- **Check** — In DynamoDB (or cached): user has active supporter subscription (platform fan sub) → allow 128 kbps and **no** byte cap (or a much higher cap). If not supporter → 64 kbps only and enforce free cap.
+- **Check** — In DynamoDB (or cached): user has active Listener or Support subscription (platform fan sub) → allow 128 kbps and **no** byte cap (or a much higher cap). If not paid tier → 64 kbps only and enforce free cap.
 - **Client** — API response for `GET /v1/tracks/:id/stream` includes: signed cookie (or URL), **variant to use** (`64` or `128`), and optionally `cap_remaining_bytes` for free tier.
 
 ### Token TTL strategy (short-lived)
@@ -178,10 +178,10 @@ Example layout in S3:
 // API: free tier — before issuing segment-range URLs for track T, variant V, segments [fromSeg, toSeg]
 function canStreamSegmentRange(userId, trackId, variant, fromSeg, toSeg):
   user = loadUser(userId)
-  if user.supporter:
-    return allow(variant: "128")  // supporter: no cap; issue cookie for full track
+  if user.listenerOrSupport:
+    return allow(variant: "128")  // paid tier: no cap; issue cookie for full track
   if variant != "64":
-    return deny("supporter_required")
+    return deny("paid_tier_required")
   cap = 100 * 1024 * 1024  // 100 MB
   usage = getOrCreateMonthlyUsage(userId, thisMonth())
   rangeBytes = getSegmentRangeSize(trackId, "64", fromSeg, toSeg)  // from metadata
@@ -265,7 +265,7 @@ We keep bandwidth predictable by:
 - **Variables:** MAU = monthly active users; `avg_mb_per_user` = average MB streamed (or served) per user per month; `cost_per_gb` = blended cost per GB (CloudFront + S3).
 - **Equation:**  
   `monthly_bandwidth_cost ≈ MAU * (avg_mb_per_user / 1024) * cost_per_gb`  
-  Example: 10k MAU, 80 MB/user/month, $0.05/GB → `10_000 * (80/1024) * 0.05 ≈ $39` (bandwidth only). Cap free tier at 100 MB so `avg_mb_per_user` is bounded for free users; supporters can be higher.
+  Example: 10k MAU, 80 MB/user/month, $0.05/GB → `10_000 * (80/1024) * 0.05 ≈ $39` (bandwidth only). Cap free tier at 100 MB so `avg_mb_per_user` is bounded for free users; Listener/Support users can be higher.
 
 ---
 
@@ -300,7 +300,7 @@ We keep bandwidth predictable by:
 | Tracks started vs completed | Client (optional) or API (stream-issue vs next track) | Skip rate, engagement. |
 | Average played seconds before skip | Client (optional) | Quality of recommendations / UX. |
 | Cache hit ratio (client-side) | Client | How much traffic is from cache vs CDN. |
-| Entitlement checks (grant/deny, reason) | API | Cap hits, supporter vs free. |
+| Entitlement checks (grant/deny, reason) | API | Cap hits, Listener/Support vs free. |
 | Signed URL / cookie issuance count | API | Volume and abuse detection. |
 | Segment request errors (4xx/5xx) | CDN logs | Reliability, token expiry mid-stream. |
 
@@ -329,7 +329,7 @@ We keep bandwidth predictable by:
 | # | Milestone | Deliverables |
 |---|-----------|--------------|
 | 1 | **Packaging pipeline** | Ingest uploaded track → transcode to Opus 64 + 128 kbps → segment with FFmpeg/MediaConvert (4 s fMP4) → upload to S3 (`/tracks/{id}/hls/{variant}/`). Master + variant playlists. **Emit and store segment sizes** (per segment or per track) for cap accounting (DynamoDB or manifest sidecar). |
-| 2 | **Signed URL issuance** | API: `GET /v1/tracks/:id/stream` (supporter: full-track cookie) and `GET /v1/tracks/:id/segments?from=&to=` (free: segment-range). Auth, entitlement, cap check using stored segment sizes; add range bytes to usage; issue signed URLs or cookie for range; TTL 15–30 min. Idempotency for segment-range to avoid double-count on retries. Response: cookie/URLs + variant + cap_remaining. |
+| 2 | **Signed URL issuance** | API: `GET /v1/tracks/:id/stream` (Listener/Support: full-track cookie) and `GET /v1/tracks/:id/segments?from=&to=` (free: segment-range). Auth, entitlement, cap check using stored segment sizes; add range bytes to usage; issue signed URLs or cookie for range; TTL 15–30 min. Idempotency for segment-range to avoid double-count on retries. Response: cookie/URLs + variant + cap_remaining. |
 | 3 | **Client HLS playback** | Player loads master playlist (with signed cookie); selects variant from API response; requests segments from CloudFront; plays via native HLS or MSE. Mobile + desktop. |
 | 4 | **Client caching** | Cache key format; persist segments to disk; LRU eviction; max size setting; commit when played ≥70% or user taps Save. Resume from cache when segments present. |
 | 5 | **Caps + metering** | DynamoDB: monthly usage per user; segment-range issuance adds only requested range bytes (from stored segment sizes); enforce cap before issue; return cap_remaining. Idempotency for range requests. Reset at month boundary. Dashboard: bytes per user. |
@@ -352,7 +352,7 @@ We keep bandwidth predictable by:
 ## Summary
 
 - **Audio path:** Client → CloudFront → S3 only; API is for auth, metadata, entitlements, and short-lived signed access.
-- **Format:** HLS + fMP4, 4 s segments; 64 kbps (free) and 128 kbps (supporter) variants.
-- **Entitlement:** Session → API → cap check + supporter check → signed cookie (or URL) 15–30 min.
+- **Format:** HLS + fMP4, 4 s segments; 64 kbps (free) and 128 kbps (Listener/Support) variants.
+- **Entitlement:** Session → API → cap check + Listener/Support check → signed cookie (or URL) 15–30 min.
 - **Cache:** LRU disk cache, commit at 70% play or Save; conservative prefetch; resume from cache when available.
 - **Cost:** Free-tier byte cap at issue time; rate limits; telemetry and alerts; optional kill-switch.

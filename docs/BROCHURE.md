@@ -158,7 +158,7 @@ If we ever use AI to help with moderation, it would only be to **flag** possible
 
 **Data and privacy**
 
-We **don't sell** your data or your fans' data. We **don't use** it for advertising or targeting. No ad-based revenue model.
+We **don't sell** your data or your fans' data. We **don't use** it for ad targeting or profiling. Free listeners may see light, privacy-respecting ads; Listener and Support subscribers are ad-free.
 
 **Your content** — You own what you upload (music, posts, photos, bio). We host it; you can delete it or leave. We don't claim ownership of your work.
 
